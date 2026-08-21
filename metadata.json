@@ -1,0 +1,7 @@
+{
+  "name": "BusinessAI",
+  "description": "Assistant IA intelligent pour petites et moyennes entreprises : marketing, publications, fiches produits, réponses clients, calculs de marge et profil d'entreprise.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
