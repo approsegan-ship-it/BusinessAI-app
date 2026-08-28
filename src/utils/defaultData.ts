@@ -11,7 +11,7 @@ export const DEFAULT_COMPANY: CompanyProfile = {
   currency: 'FCFA',
   defaultTone: 'Professionnel et Chaleureux',
   websiteOrSocial: '@eclat_style_dakar',
-  knowledgeBase: 'Livraison gratuite à partir de 35 000 FCFA d’achat. Expédition partout en 24h/48h. Échange possible sous 7 jours sur présentation du reçu.',
+  knowledgeBase: 'Livraison gratuite à partir de 50 000 FCFA d’achat. Expédition partout en 24h/48h. Échange possible sous 7 jours sur présentation du reçu.',
   targetAudienceDefault: 'Jeunes professionnels, femmes actives et amateurs de mode soignée',
 };
 
@@ -26,7 +26,7 @@ export const SECTOR_TEMPLATES: Record<string, Partial<CompanyProfile>> = {
     hours: 'Lun - Sam : 09h - 20h',
     currency: 'FCFA',
     defaultTone: 'Élégant et Haut de Gamme',
-    knowledgeBase: 'Livraison gratuite dès 35 000 FCFA. Possibilité d’essayer à la livraison sur Dakar.',
+    knowledgeBase: 'Livraison gratuite dès 50 000 FCFA. Possibilité d’essayer à la livraison sur Dakar.',
   },
   'Restaurant / Traiteur': {
     name: 'La Table Gourmande',
@@ -82,7 +82,7 @@ export const INITIAL_PRODUCTS: SavedProduct[] = [
   {
     id: 'prod-1',
     name: 'Veste Blazer Tailleur Cintrée',
-    price: 34500,
+    price: 45000,
     category: 'Vêtements Femme',
     features: 'Tissu stretch respirant, boutons dorés gravés, coupe italienne ajustée.',
     benefits: 'Sublime la silhouette, convient au bureau comme aux sorties de soirée, infroissable.',
@@ -101,7 +101,7 @@ export const INITIAL_PRODUCTS: SavedProduct[] = [
   {
     id: 'prod-2',
     name: 'Sac à Main Cuir Minimaliste',
-    price: 45000,
+    price: 65000,
     category: 'Maroquinerie',
     features: 'Cuir véritable pleine fleur, bandoulière amovible, compartiment tablette.',
     benefits: 'Ultra résistant, intemporel et fonctionnel pour transporter tous vos essentiels.',
