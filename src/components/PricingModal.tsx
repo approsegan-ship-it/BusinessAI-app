@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { PLANS_ARRAY, PricingPlan, PlanId } from '../config/plans';
+import { PLANS_ARRAY, PricingPlan, PlanId, PAYMENT_METHODS } from '../config/plans';
 import {
   Crown,
   Check,
@@ -8,18 +8,45 @@ import {
   X,
   Sparkles,
   ShieldCheck,
-  ArrowRight,
+  Smartphone,
   ChevronRight,
+  Lock,
+  Phone,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatPriceWithCurrency } from '../config/currency';
+import { OFFICIAL_PAYMENT_NUMBER } from './PaymentInstructionModal';
 
 export const PricingModal: React.FC = () => {
-  const { isPricingModalOpen, setIsPricingModalOpen, user, upgradePlan, setCurrentTab } = useApp();
+  const {
+    isPricingModalOpen,
+    setIsPricingModalOpen,
+    user,
+    upgradePlan,
+    setCurrentTab,
+    displayCurrency,
+    openPaymentModal,
+    addToast,
+  } = useApp();
+
+  const [selectedMethod, setSelectedMethod] = useState<'wave' | 'orange_money' | 'mtn' | 'moov' | 'card'>('wave');
 
   if (!isPricingModalOpen) return null;
 
   const handleSelect = (planId: PlanId) => {
-    upgradePlan(planId);
+    if (planId === user.plan && user.plan !== 'free') {
+      addToast('info', 'Forfait déjà actif', `Vous utilisez déjà le forfait ${planId.toUpperCase()}.`);
+      return;
+    }
+
+    if (planId === 'free') {
+      upgradePlan('free');
+      setIsPricingModalOpen(false);
+      return;
+    }
+
+    setIsPricingModalOpen(false);
+    openPaymentModal(planId);
   };
 
   const handleOpenFullPage = () => {
@@ -29,12 +56,12 @@ export const PricingModal: React.FC = () => {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
-          className="relative w-full max-w-5xl bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-2xl overflow-hidden text-slate-900 my-6 max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-5xl bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-2xl overflow-hidden text-slate-900 my-6 max-h-[92vh] overflow-y-auto"
         >
           {/* Close button */}
           <button
@@ -49,14 +76,33 @@ export const PricingModal: React.FC = () => {
           <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8 pt-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-semibold uppercase tracking-wider mb-2">
               <Crown className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Forfaits & Tarifs BusinessAI</span>
+              <span>Accès Payant IA BusinessAI</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Passez à l’offre supérieure
+              Paiement & Activation de votre IA
             </h2>
-            <p className="text-slate-500 text-xs sm:text-sm mt-1.5">
-              Débloquez instantanément de nouvelles générations IA et des outils de vente avancés pour votre entreprise.
+            <p className="text-slate-600 text-xs sm:text-sm mt-1.5 leading-relaxed">
+              Pour utiliser l'IA générative (Assistant, Fiches Produits, WhatsApp & Réseaux Sociaux), envoyez votre paiement au <strong className="text-indigo-600 font-black">{OFFICIAL_PAYMENT_NUMBER}</strong> ou sélectionnez un forfait ci-dessous.
             </p>
+
+            {/* Quick Payment Method Selector */}
+            <div className="mt-4 inline-flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold flex-wrap justify-center">
+              <span className="text-slate-500 px-2 text-[11px]">Paiement disponible :</span>
+              {PAYMENT_METHODS.map((pm) => (
+                <button
+                  key={pm.id}
+                  type="button"
+                  onClick={() => setSelectedMethod(pm.id as any)}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                    selectedMethod === pm.id
+                      ? 'bg-white text-indigo-600 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {pm.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 4 Cards Grid */}
@@ -64,6 +110,8 @@ export const PricingModal: React.FC = () => {
             {PLANS_ARRAY.map((plan: PricingPlan) => {
               const isCurrent = user.plan === plan.id;
               const isRecommended = Boolean(plan.isRecommended);
+              const isFree = plan.id === 'free';
+              const formattedPrice = formatPriceWithCurrency(plan.price, displayCurrency);
 
               return (
                 <div
@@ -80,7 +128,7 @@ export const PricingModal: React.FC = () => {
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span className="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
                         <Sparkles className="w-2.5 h-2.5 text-amber-300" />
-                        Recommandé
+                        Recommandé PME
                       </span>
                     </div>
                   )}
@@ -99,21 +147,23 @@ export const PricingModal: React.FC = () => {
                     </div>
 
                     <div className="text-xl sm:text-2xl font-extrabold text-slate-900 mb-1">
-                      {plan.formattedPrice}
+                      {formattedPrice}
                       <span className="text-[11px] font-normal text-slate-500 ml-1">{plan.period}</span>
                     </div>
 
                     <div
                       className={`text-[11px] font-bold py-1 px-2 rounded-lg mb-3 flex items-center gap-1.5 ${
-                        isRecommended
+                        isFree
+                          ? 'bg-slate-100 text-slate-600'
+                          : isRecommended
                           ? 'bg-indigo-600 text-white'
                           : plan.id === 'business'
                           ? 'bg-slate-900 text-amber-300'
                           : 'bg-slate-100 text-slate-700'
                       }`}
                     >
-                      <Zap className="w-3 h-3 shrink-0" />
-                      <span>{plan.monthlyGenerations} gén. / mois</span>
+                      {isFree ? <Lock className="w-3 h-3 text-slate-500" /> : <Zap className="w-3 h-3 shrink-0" />}
+                      <span>{isFree ? '0 gén. (IA verrouillée)' : `${plan.monthlyGenerations} gén. / mois`}</span>
                     </div>
 
                     <ul className="space-y-1.5 text-[11px] text-slate-700 mb-4">
@@ -121,7 +171,7 @@ export const PricingModal: React.FC = () => {
                         <li key={idx} className="flex items-start gap-1.5">
                           <Check
                             className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                              isRecommended ? 'text-indigo-600' : 'text-emerald-600'
+                              isRecommended ? 'text-indigo-600' : isFree ? 'text-slate-400' : 'text-emerald-600'
                             }`}
                           />
                           <span className="leading-snug">{f}</span>
@@ -131,6 +181,7 @@ export const PricingModal: React.FC = () => {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => handleSelect(plan.id)}
                     disabled={isCurrent}
                     className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
@@ -138,12 +189,16 @@ export const PricingModal: React.FC = () => {
                         ? 'bg-slate-100 text-slate-400 cursor-default'
                         : isRecommended
                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
-                        : plan.id === 'business'
-                        ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                        : isFree
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                         : 'bg-slate-900 hover:bg-slate-800 text-white'
                     }`}
                   >
-                    {isCurrent ? 'Forfait Actif' : `Choisir ${plan.name}`}
+                    {isCurrent
+                      ? 'Forfait Actif'
+                      : isFree
+                      ? 'Aperçu gratuit (Sans IA)'
+                      : `Payer & Activer ${plan.name}`}
                   </button>
                 </div>
               );
@@ -154,10 +209,13 @@ export const PricingModal: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs text-slate-500">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Paiement en FCFA • Sans engagement • Mode test</span>
+              <span>
+                Paiement direct Wave, Orange Money, MTN, Moov au <strong>{OFFICIAL_PAYMENT_NUMBER}</strong> • Déblocage immédiat
+              </span>
             </div>
 
             <button
+              type="button"
               onClick={handleOpenFullPage}
               className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
             >

@@ -73,13 +73,15 @@ const SCENARIOS = [
 ];
 
 export const CustomerResponses: React.FC = () => {
-  const { company, consumeCredit, addHistory, addToast, openWhatsAppTutorialModal } = useApp();
+  const { company, user, consumeCredit, addHistory, addToast, openWhatsAppTutorialModal, setIsPricingModalOpen, openPaymentModal } = useApp();
 
   const [selectedScenarioId, setSelectedScenarioId] = useState('price');
   const [clientName, setClientName] = useState('');
   const [specificContext, setSpecificContext] = useState('');
   const [tone, setTone] = useState('Chaleureux & Bienveillant');
   const [loading, setLoading] = useState(false);
+
+  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
 
   const [generatedResponse, setGeneratedResponse] = useState<string | null>(null);
   const [salesTip, setSalesTip] = useState<string | null>(null);
@@ -89,6 +91,16 @@ export const CustomerResponses: React.FC = () => {
 
   const handleGenerate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+
+    if (isFreePlan) {
+      addToast(
+        'warning',
+        'Abonnement requis',
+        'Envoyez votre paiement au 0163638893 pour activer l’IA et générer vos réponses clients.'
+      );
+      openPaymentModal('starter');
+      return;
+    }
 
     if (!consumeCredit()) {
       return;
@@ -231,6 +243,25 @@ Fournis la réponse en respectant STRICTEMENT les balises :
             onSubmit={handleGenerate}
             className="p-6 rounded-3xl bg-white border border-slate-200 shadow-2xs space-y-4"
           >
+            {isFreePlan && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🔒</span>
+                  <p className="text-xs font-bold text-slate-900">Abonnement requis pour l’IA</p>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Souscrivez à un forfait pour que l'IA génère instantanément des réponses diplomates, commerciales et persuasives.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsPricingModalOpen(true)}
+                  className="mt-1 w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition-all active:scale-95 cursor-pointer text-center"
+                >
+                  Payer & Débloquer l'IA (dès 4 900 FCFA)
+                </button>
+              </div>
+            )}
+
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-violet-600" />
               <span>Personnaliser la réponse</span>

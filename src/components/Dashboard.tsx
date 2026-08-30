@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import {
   MessageSquareText,
   Share2,
+  Video,
   Package,
   MessageCircleReply,
   TrendingUp,
@@ -35,10 +36,13 @@ export const Dashboard: React.FC = () => {
     badges,
     setCurrentTab,
     setIsPricingModalOpen,
+    openPaymentModal,
+    formatMoney,
     setIsViralPostModalOpen,
     openWhatsAppTutorialModal,
     setActivePresetPrompt,
     addToast,
+    t,
   } = useApp();
 
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
@@ -114,6 +118,31 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12 max-w-7xl mx-auto">
+      {/* Free Plan Lock Banner */}
+      {user.plan === 'free' && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-lg shrink-0">
+              🔒
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm text-slate-900">
+                Paiement requis pour utiliser l'IA générative BusinessAI
+              </h3>
+              <p className="text-xs text-slate-600">
+                Vos fonctionnalités d'IA sont verrouillées. Envoyez votre paiement au <strong>0163638893</strong> ou souscrivez à un forfait dès <strong>{formatMoney(4900)}/mois</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => openPaymentModal('starter')}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+          >
+            Payer au 0163638893 & Débloquer l'IA
+          </button>
+        </div>
+      )}
+
       {/* Top Welcome & Quota Banner */}
       <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-2 relative z-10">
@@ -142,34 +171,36 @@ export const Dashboard: React.FC = () => {
                   ? 'text-amber-900 bg-amber-100 border border-amber-200'
                   : user.plan === 'pro'
                   ? 'text-purple-900 bg-purple-100 border border-purple-200'
-                  : 'text-slate-200 bg-slate-700'
+                  : 'text-amber-300 bg-amber-950/80 border border-amber-700/60'
               }`}
             >
-              <Crown className="w-3 h-3" /> Plan {user.plan}
+              <Crown className="w-3 h-3" /> {user.plan === 'free' ? 'Sans IA' : `Plan ${user.plan}`}
               {user.plan === 'starter' && ' ★'}
             </span>
           </div>
 
           <div className="text-sm font-bold text-white flex items-baseline gap-2 mb-1">
             <span className="text-2xl sm:text-3xl text-indigo-300 font-black">
-              {Math.max(0, user.maxCredits - user.creditsUsed)}
+              {user.plan === 'free' ? 0 : Math.max(0, user.maxCredits - user.creditsUsed)}
             </span>
             <span className="text-xs text-slate-400 font-normal">
-              / {user.maxCredits} générations restantes
+              / {user.maxCredits} générations {user.plan === 'free' ? '(Abonnement requis)' : 'restantes'}
             </span>
           </div>
 
           <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden mb-3">
             <div
               className={`h-full ${
-                user.creditsUsed / user.maxCredits > 0.8
+                user.plan === 'free'
+                  ? 'bg-amber-500 w-0'
+                  : user.creditsUsed / (user.maxCredits || 1) > 0.8
                   ? 'bg-rose-500'
-                  : user.creditsUsed / user.maxCredits > 0.5
+                  : user.creditsUsed / (user.maxCredits || 1) > 0.5
                   ? 'bg-amber-400'
                   : 'bg-indigo-400'
               }`}
               style={{
-                width: `${Math.min(100, (user.creditsUsed / user.maxCredits) * 100)}%`,
+                width: user.plan === 'free' ? '0%' : `${Math.min(100, (user.creditsUsed / (user.maxCredits || 1)) * 100)}%`,
               }}
             />
           </div>
@@ -180,7 +211,7 @@ export const Dashboard: React.FC = () => {
               className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
             >
               <Crown className="w-3.5 h-3.5 text-amber-300" />
-              <span>{user.plan === 'free' ? 'Passer à Premium' : 'Gérer l’offre'}</span>
+              <span>{user.plan === 'free' ? 'Payer & Activer l’IA' : 'Gérer l’offre'}</span>
             </button>
             <button
               onClick={() => setCurrentTab('pricing')}
@@ -326,7 +357,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          {/* Action 2 */}
+          {/* Action 2: Posts */}
           <button
             onClick={() => setCurrentTab('social')}
             className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-sky-300 hover:shadow-sm text-left transition-all group cursor-pointer shadow-2xs"
@@ -342,6 +373,29 @@ export const Dashboard: React.FC = () => {
             </p>
             <div className="flex items-center gap-1 text-xs font-semibold text-sky-700 mt-3">
               <span>Générer mes posts</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* Action 3: Video Generator */}
+          <button
+            onClick={() => setCurrentTab('video')}
+            className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-pink-300 hover:shadow-sm text-left transition-all group cursor-pointer shadow-2xs relative overflow-hidden"
+          >
+            <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 font-bold text-[10px]">
+              Nouveau
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-pink-50 border border-pink-200 text-pink-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+              <Video className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-base group-hover:text-pink-700 transition-colors">
+              Générateur Vidéo & TikTok
+            </h3>
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              Storyboards complets, voix-off minutée, sous-titres .SRT et simulateur interactif.
+            </p>
+            <div className="flex items-center gap-1 text-xs font-semibold text-pink-700 mt-3">
+              <span>Créer une vidéo</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>

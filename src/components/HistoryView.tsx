@@ -10,6 +10,7 @@ import {
   Filter,
   MessageSquareText,
   Share2,
+  Video,
   Package,
   MessageCircleReply,
   TrendingUp,
@@ -51,6 +52,8 @@ export const HistoryView: React.FC = () => {
         return { label: 'Assistant IA', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
       case 'social':
         return { label: 'Publications', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+      case 'video':
+        return { label: 'Vidéo Marketing', color: 'bg-pink-50 text-pink-700 border-pink-200' };
       case 'product':
         return { label: 'Fiche Produit', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
       case 'client_reply':
@@ -103,6 +106,7 @@ export const HistoryView: React.FC = () => {
             { id: 'all', label: 'Tout' },
             { id: 'chat', label: 'Assistant' },
             { id: 'social', label: 'Publications' },
+            { id: 'video', label: 'Vidéos' },
             { id: 'product', label: 'Produits' },
             { id: 'client_reply', label: 'Clients' },
             { id: 'sales_tool', label: 'Vente' },

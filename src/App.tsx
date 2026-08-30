@@ -7,6 +7,7 @@ import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
 import { AIAssistant } from './components/AIAssistant';
 import { SocialGenerator } from './components/SocialGenerator';
+import { VideoGenerator } from './components/VideoGenerator';
 import { ProductCatalog } from './components/ProductCatalog';
 import { CustomerResponses } from './components/CustomerResponses';
 import { SalesTools } from './components/SalesTools';
@@ -14,6 +15,7 @@ import { HistoryView } from './components/HistoryView';
 import { CompanyProfileView } from './components/CompanyProfileView';
 import { PricingView } from './components/PricingView';
 import { PricingModal } from './components/PricingModal';
+import { PaymentInstructionModal } from './components/PaymentInstructionModal';
 import { AuthModal } from './components/AuthModal';
 import { WhatsAppTutorialModal } from './components/WhatsAppTutorialModal';
 import { ShareModal } from './components/ShareModal';
@@ -24,7 +26,7 @@ import { ReferralView } from './components/ReferralView';
 import { EarnCreditsView } from './components/EarnCreditsView';
 
 const AppContent: React.FC = () => {
-  const { currentTab } = useApp();
+  const { currentTab, isPaymentModalOpen, setIsPaymentModalOpen, paymentPlan } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -73,6 +75,7 @@ const AppContent: React.FC = () => {
             {currentTab === 'dashboard' && <Dashboard />}
             {currentTab === 'assistant' && <AIAssistant />}
             {currentTab === 'social' && <SocialGenerator />}
+            {currentTab === 'video' && <VideoGenerator />}
             {currentTab === 'products' && <ProductCatalog />}
             {currentTab === 'clients' && <CustomerResponses />}
             {currentTab === 'sales' && <SalesTools />}
@@ -92,6 +95,11 @@ const AppContent: React.FC = () => {
       <EarnCreditsModal />
       <OnboardingWizard />
       <PricingModal />
+      <PaymentInstructionModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        preselectedPlan={paymentPlan}
+      />
       <AuthModal />
       <ToastContainer />
     </div>

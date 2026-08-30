@@ -20,8 +20,18 @@ import {
 import { ShareActionsBar } from './ShareActionsBar';
 
 export const ProductCatalog: React.FC = () => {
-  const { company, products, addProduct, deleteProduct, consumeCredit, addHistory, addToast } =
-    useApp();
+  const {
+    company,
+    products,
+    user,
+    addProduct,
+    deleteProduct,
+    consumeCredit,
+    addHistory,
+    addToast,
+    setIsPricingModalOpen,
+    openPaymentModal,
+  } = useApp();
 
   // Form State
   const [name, setName] = useState('');
@@ -31,6 +41,8 @@ export const ProductCatalog: React.FC = () => {
   const [benefits, setBenefits] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
 
   // Generated Preview before saving
   const [generatedResult, setGeneratedResult] = useState<{
@@ -48,6 +60,16 @@ export const ProductCatalog: React.FC = () => {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFreePlan) {
+      addToast(
+        'warning',
+        'Abonnement requis',
+        'Envoyez votre paiement au 0163638893 pour activer l’IA et générer des fiches produits.'
+      );
+      openPaymentModal('starter');
+      return;
+    }
+
     if (!name.trim()) {
       addToast('warning', 'Nom requis', 'Veuillez saisir au moins le nom du produit.');
       return;
@@ -213,6 +235,25 @@ Fournis la réponse en respectant STRICTEMENT les balises suivantes :
             onSubmit={handleGenerate}
             className="p-6 rounded-3xl bg-white border border-slate-200 shadow-2xs space-y-4"
           >
+            {isFreePlan && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🔒</span>
+                  <p className="text-xs font-bold text-slate-900">Abonnement requis pour l’IA</p>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Souscrivez à un forfait pour que l'IA rédige automatiquement le titre accrocheur, les arguments clés et l'appel à l'action.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsPricingModalOpen(true)}
+                  className="mt-1 w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition-all active:scale-95 cursor-pointer text-center"
+                >
+                  Payer & Débloquer l'IA (dès 4 900 FCFA)
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" />

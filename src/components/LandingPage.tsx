@@ -11,6 +11,7 @@ import {
   Wrench,
   Sparkle,
   Share2,
+  Video,
   Package,
   MessageCircleReply,
   TrendingUp,
@@ -70,6 +71,13 @@ export const LandingPage: React.FC = () => {
       icon: Share2,
       desc: 'Créez en 1 clic vos posts Facebook, Instagram avec hashtags, messages WhatsApp et slogans percutants.',
       iconColor: 'text-blue-600',
+    },
+    {
+      tab: 'video',
+      title: 'Générateur Vidéo & Storyboard TikTok',
+      icon: Video,
+      desc: 'Scénarios vidéo minutés, accroches scroll-stopper, scripts voix-off mot à mot, sous-titres .SRT et conseils de tournage.',
+      iconColor: 'text-pink-600',
     },
     {
       tab: 'products',
@@ -267,25 +275,27 @@ export const LandingPage: React.FC = () => {
             <div className="space-y-3 text-left max-w-lg">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold">
                 <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                Tarifs adaptés en FCFA
+                Tarifs multi-devises & Paiement direct
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 4 offres claires pour faire grandir votre entreprise
               </h2>
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-                De l’offre <strong>FREE (0 FCFA)</strong> à l’offre <strong>STARTER (1 500 FCFA/mois — Recommandée)</strong>, <strong>PRO (3 500 FCFA)</strong> et <strong>BUSINESS (10 000 FCFA)</strong>, choisissez la formule idéale pour votre rythme de vente.
+                Paiement direct Wave et Mobile Money sur le numéro officiel <strong>0163638893</strong> (+225 01 63 63 88 93). Tarifs disponibles en FCFA, EUR, USD, GHS, NGN et CAD.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
               <button
+                type="button"
                 onClick={() => setCurrentTab('pricing')}
                 className="px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xs transition-all text-center cursor-pointer flex items-center justify-center gap-2"
               >
                 <Crown className="w-4 h-4 text-amber-300" />
-                <span>Voir les 4 offres</span>
+                <span>Voir les tarifs & Payer</span>
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentTab('dashboard')}
                 className="px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
               >

@@ -66,12 +66,16 @@ function MessageSquareIcon(props: { className?: string }) {
 export const AIAssistant: React.FC = () => {
   const {
     company,
+    user,
     consumeCredit,
     addHistory,
     addToast,
     activePresetPrompt,
     setActivePresetPrompt,
     openWhatsAppTutorialModal,
+    openPaymentModal,
+    formatMoney,
+    t,
   } = useApp();
 
   const [input, setInput] = useState('');
@@ -87,6 +91,8 @@ export const AIAssistant: React.FC = () => {
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -107,6 +113,12 @@ export const AIAssistant: React.FC = () => {
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
     if (!query || loading) return;
+
+    if (isFreePlan) {
+      openPaymentModal('starter');
+      addToast('error', 'Abonnement requis', 'Veuillez effectuer votre paiement vers le 0163638893 pour débloquer l’IA.');
+      return;
+    }
 
     if (!consumeCredit()) {
       return;
@@ -221,6 +233,30 @@ export const AIAssistant: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Paywall Alert Banner for Free Plan */}
+      {isFreePlan && (
+        <div className="mb-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 font-bold flex items-center justify-center shrink-0">
+              🔒
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900">Accès IA Verrouillé • Forfait requis</p>
+              <p className="text-[11px] text-slate-600">
+                Paiement direct vers le numéro officiel <strong>0163638893</strong> (dès {formatMoney(4900)}/mois) pour débloquer l'IA.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => openPaymentModal('starter')}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+          >
+            <span>Payer au 0163638893 & Débloquer l'IA</span>
+          </button>
+        </div>
+      )}
 
       {/* Preset Topics Row */}
       <div className="shrink-0 mb-3 overflow-x-auto pb-1 flex gap-2 no-scrollbar">

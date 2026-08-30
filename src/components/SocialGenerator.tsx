@@ -15,7 +15,7 @@ import {
 import { ShareActionsBar } from './ShareActionsBar';
 
 export const SocialGenerator: React.FC = () => {
-  const { company, consumeCredit, addHistory, addToast } = useApp();
+  const { company, user, consumeCredit, addHistory, addToast, setIsPricingModalOpen, openPaymentModal } = useApp();
 
   const [productName, setProductName] = useState('');
   const [productDetails, setProductDetails] = useState('');
@@ -27,8 +27,20 @@ export const SocialGenerator: React.FC = () => {
   const [activeResultTab, setActiveResultTab] = useState<keyof SocialPostResults>('instagram');
   const [results, setResults] = useState<SocialPostResults | null>(null);
 
+  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFreePlan) {
+      addToast(
+        'warning',
+        'Paiement requis',
+        'Envoyez votre paiement au 0163638893 pour activer l’IA et générer vos publications.'
+      );
+      openPaymentModal('starter');
+      return;
+    }
+
     if (!productName.trim()) {
       addToast('warning', 'Champ manquant', 'Veuillez indiquer au moins le nom du produit ou service.');
       return;
@@ -171,6 +183,25 @@ Tu DOIS générer exactement les 5 formats demandés en respectant STRICTEMENT l
         {/* Left Form: Inputs */}
         <div className="lg:col-span-5 space-y-6">
           <form onSubmit={handleGenerate} className="p-6 rounded-3xl bg-white border border-slate-200 shadow-2xs space-y-4">
+            {isFreePlan && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🔒</span>
+                  <p className="text-xs font-bold text-slate-900">Abonnement requis pour générer</p>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Débloquez 100 à 2 000 générations de publications, WhatsApp et Facebook Ads en souscrivant à un forfait.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsPricingModalOpen(true)}
+                  className="mt-1 w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition-all active:scale-95 cursor-pointer text-center"
+                >
+                  Payer & Débloquer l'IA (dès 4 900 FCFA)
+                </button>
+              </div>
+            )}
+
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-600" />
               <span>Détails du produit ou service</span>

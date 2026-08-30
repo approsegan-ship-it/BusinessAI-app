@@ -26,26 +26,40 @@ function getGenAI(): GoogleGenAI | null {
 const TEXT_MODELS = [
   "gemini-3.7-flash",
   "gemini-3.1-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-flash-latest",
 ];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function isTransientError(error: any): boolean {
+function isHighDemandOrUnavailable(error: any): boolean {
   if (!error) return false;
   const status = error.status || error.code || error?.error?.code;
-  const msg = (error.message || "").toLowerCase();
+  const msg = (error.message || error?.error?.message || "").toLowerCase();
   return (
     status === 503 ||
     status === 429 ||
-    status === 500 ||
-    status === 504 ||
+    status === "UNAVAILABLE" ||
     msg.includes("503") ||
     msg.includes("high demand") ||
+    msg.includes("spikes in demand") ||
     msg.includes("unavailable") ||
     msg.includes("resource_exhausted") ||
     msg.includes("overloaded") ||
     msg.includes("rate limit")
+  );
+}
+
+function isTransientError(error: any): boolean {
+  if (!error) return false;
+  const status = error.status || error.code || error?.error?.code;
+  const msg = (error.message || error?.error?.message || "").toLowerCase();
+  return (
+    isHighDemandOrUnavailable(error) ||
+    status === 500 ||
+    status === 504 ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    msg.includes("timeout")
   );
 }
 
@@ -58,31 +72,47 @@ async function generateWithFallback(
   let lastError: any = null;
 
   for (const model of TEXT_MODELS) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            systemInstruction:
-              systemInstruction ||
-              "Tu es BusinessAI, un assistant expert en marketing, communication et vente pour les petites et moyennes entreprises francophones. Sois clair, percutant, professionnel et directement actionnable.",
-            temperature: typeof temperature === "number" ? temperature : 0.7,
-          },
-        });
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction:
+            systemInstruction ||
+            "Tu es BusinessAI, un assistant expert en marketing, communication et vente pour les petites et moyennes entreprises francophones. Sois clair, percutant, professionnel et directement actionnable.",
+          temperature: typeof temperature === "number" ? temperature : 0.7,
+        },
+      });
 
-        if (response?.text) {
-          return { text: response.text, modelUsed: model };
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[Gemini Gen] Model ${model} attempt ${attempt} failed: ${err?.message || err}`);
+      if (response?.text) {
+        return { text: response.text, modelUsed: model };
+      }
+    } catch (err: any) {
+      lastError = err;
+      const isOverloaded = isHighDemandOrUnavailable(err);
+      console.warn(
+        `[Gemini Gen] Modèle ${model} ${isOverloaded ? "en forte affluence (503/429) -> bascule immédiate" : "erreur: " + (err?.message || err)}`
+      );
 
-        if (isTransientError(err) && attempt < 2) {
-          await sleep(500 * attempt);
-        } else {
-          // Switch to next fallback model
-          break;
+      // If it's a non-high-demand transient error, try a single quick retry before switching
+      if (!isOverloaded && isTransientError(err)) {
+        try {
+          await sleep(300);
+          const retryRes = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction:
+                systemInstruction ||
+                "Tu es BusinessAI, un assistant expert en marketing, communication et vente pour PME.",
+              temperature: typeof temperature === "number" ? temperature : 0.7,
+            },
+          });
+          if (retryRes?.text) {
+            return { text: retryRes.text, modelUsed: model };
+          }
+        } catch {
+          // Switch to next model
         }
       }
     }
@@ -104,34 +134,50 @@ async function chatWithFallback(
   }));
 
   for (const model of TEXT_MODELS) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const chat = ai.chats.create({
-          model,
-          config: {
-            systemInstruction:
-              systemInstruction ||
-              "Tu es BusinessAI, un assistant business convivial, direct et expert pour les entrepreneurs et PME. Aide l'utilisateur à développer son chiffre d'affaires, soigner ses messages clients et optimiser sa communication.",
-          },
-          history: historyFormatted,
-        });
+    try {
+      const chat = ai.chats.create({
+        model,
+        config: {
+          systemInstruction:
+            systemInstruction ||
+            "Tu es BusinessAI, un assistant business convivial, direct et expert pour les entrepreneurs et PME. Aide l'utilisateur à développer son chiffre d'affaires, soigner ses messages clients et optimiser sa communication.",
+        },
+        history: historyFormatted,
+      });
 
-        const result = await chat.sendMessage({
-          message: lastMessage,
-        });
+      const result = await chat.sendMessage({
+        message: lastMessage,
+      });
 
-        if (result?.text) {
-          return { text: result.text, modelUsed: model };
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[Gemini Chat] Model ${model} attempt ${attempt} failed: ${err?.message || err}`);
+      if (result?.text) {
+        return { text: result.text, modelUsed: model };
+      }
+    } catch (err: any) {
+      lastError = err;
+      const isOverloaded = isHighDemandOrUnavailable(err);
+      console.warn(
+        `[Gemini Chat] Modèle ${model} ${isOverloaded ? "en forte affluence (503/429) -> bascule immédiate vers le modèle suivant" : "erreur: " + (err?.message || err)}`
+      );
 
-        if (isTransientError(err) && attempt < 2) {
-          await sleep(500 * attempt);
-        } else {
-          // Switch to next fallback model
-          break;
+      // If not 503 high-demand, try one quick retry
+      if (!isOverloaded && isTransientError(err)) {
+        try {
+          await sleep(300);
+          const chatRetry = ai.chats.create({
+            model,
+            config: {
+              systemInstruction:
+                systemInstruction ||
+                "Tu es BusinessAI, un assistant business convivial, direct et expert pour les entrepreneurs et PME.",
+            },
+            history: historyFormatted,
+          });
+          const retryResult = await chatRetry.sendMessage({ message: lastMessage });
+          if (retryResult?.text) {
+            return { text: retryResult.text, modelUsed: model };
+          }
+        } catch {
+          // Switch to next model
         }
       }
     }
@@ -321,6 +367,82 @@ async function startServer() {
  */
 function generateSmartFallback(prompt: string, context?: string): string {
   const p = prompt.toLowerCase();
+
+  if (p.includes("vidéo") || p.includes("video") || p.includes("storyboard") || p.includes("tiktok") || p.includes("reels") || p.includes("scenes")) {
+    return JSON.stringify({
+      title: "Vidéo Promo Flash Produit",
+      hook: "Arrêtez tout ! Voici le secret que tout le monde s'arrache cette semaine !",
+      totalDurationSeconds: 30,
+      scenes: [
+        {
+          sceneNumber: 1,
+          timeRange: "00:00 - 00:05",
+          durationSeconds: 5,
+          title: "Accroche Scroll-Stopper",
+          visualDescription: "Présentateur montrant le produit à la caméra avec énergie et sourire communicatif",
+          cameraDirection: "Plan selfie dynamique rapproché",
+          voiceoverText: "Arrêtez de scroller ! Si vous cherchez la meilleure qualité au meilleur prix, regardez attentivement ceci !",
+          screenText: "🔥 OFFRE SPÉCIALE EXCLUSIVE !",
+          soundEffectOrMusic: "Transition Woosh + Démarrage beat Afrobeats",
+          visualThemeColor: "#6366F1"
+        },
+        {
+          sceneNumber: 2,
+          timeRange: "00:05 - 00:12",
+          durationSeconds: 7,
+          title: "Démonstration & Solution",
+          visualDescription: "Gros plan sur les finitions et l'utilisation concrète en situation réelle",
+          cameraDirection: "Plan macro 45° en lumière naturelle",
+          voiceoverText: "Fini les compromis et les mauvaises surprises. Profitez d'une qualité garantie et d'une durabilité maximale.",
+          screenText: "✨ 100% Qualité & Garantie",
+          soundEffectOrMusic: "Ding de validation",
+          visualThemeColor: "#0284C7"
+        },
+        {
+          sceneNumber: 3,
+          timeRange: "00:12 - 00:22",
+          durationSeconds: 10,
+          title: "Bénéfices & Témoignages",
+          visualDescription: "Montage rapide de clients satisfaits et livraison de colis prêts à partir",
+          cameraDirection: "Enchaînement 2 angles rapides",
+          voiceoverText: "Déjà plus de 500 clients conquis ce mois-ci ! Pourquoi pas vous ?",
+          screenText: "⭐ Recommandé par +500 clients",
+          soundEffectOrMusic: "Effet caisse enregistreuse / Carillon",
+          visualThemeColor: "#10B981"
+        },
+        {
+          sceneNumber: 4,
+          timeRange: "00:22 - 00:30",
+          durationSeconds: 8,
+          title: "Appel à l'Action WhatsApp",
+          visualDescription: "Affichage du contact WhatsApp et invitation chaleureuse à commander",
+          cameraDirection: "Plan moyen avec pointage vers le bas",
+          voiceoverText: "Les stocks s'épuisent très vite. Écrivez-nous tout de suite sur WhatsApp pour commander !",
+          screenText: "📲 COMMANDEZ SUR WHATSAPP AU 0163638893",
+          soundEffectOrMusic: "Pop WhatsApp + Cloche finale",
+          visualThemeColor: "#8B5CF6"
+        }
+      ],
+      voiceoverFullScript: "Arrêtez de scroller ! Si vous cherchez la meilleure qualité au meilleur prix, regardez attentivement ceci ! Fini les compromis et les mauvaises surprises. Profitez d'une qualité garantie et d'une durabilité maximale. Déjà plus de 500 clients conquis ce mois-ci ! Pourquoi pas vous ? Les stocks s'épuisent très vite. Écrivez-nous tout de suite sur WhatsApp pour commander !",
+      recommendedMusic: {
+        genre: "Afrobeats Rhythmique & Énergique",
+        mood: "Vendeur, motivant et convivial",
+        bpm: "115 BPM",
+        searchKeywords: "afro beat trend reels tiktok energetic"
+      },
+      filmingTips: [
+        "Filmez face à une source de lumière naturelle pour un rendu éclatant.",
+        "Nettoyez l'objectif de votre caméra avant de tourner.",
+        "Parlez avec le sourire, l'énergie passe instantanément dans la voix !"
+      ],
+      captionAndHashtags: {
+        postCaption: "🔥 Découvrez notre sélection coup de cœur ! Commandez vite au 0163638893 sur WhatsApp.",
+        hashtags: ["#BusinessAI", "#Vente", "#Nouveauté", "#Promo", "#TikTokBusiness"],
+        callToAction: "Écrivez-nous sur WhatsApp au 0163638893 pour commander"
+      },
+      srtSubtitles: "1\n00:00:00,000 --> 00:00:05,000\nArrêtez de scroller ! Découvrez notre offre exclusive.\n\n2\n00:00:05,000 --> 00:00:12,000\nQualité garantie et satisfaction client.\n\n3\n00:00:12,000 --> 00:00:22,000\nRecommandé par plus de 500 clients satisfaits.\n\n4\n00:00:22,000 --> 00:00:30,000\nCommandez vite sur WhatsApp au 0163638893 !"
+    });
+  }
 
   if (p.includes("facebook") || p.includes("instagram") || p.includes("whatsapp") || p.includes("publication")) {
     return `📢 **Proposition de Publication Réseaux Sociaux**

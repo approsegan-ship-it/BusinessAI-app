@@ -3,6 +3,7 @@ export type AppTab =
   | 'dashboard'
   | 'assistant'
   | 'social'
+  | 'video'
   | 'products'
   | 'clients'
   | 'sales'
@@ -180,10 +181,55 @@ export interface SavedProduct {
 export type HistoryCategory =
   | 'chat'
   | 'social'
+  | 'video'
   | 'product'
   | 'client_reply'
   | 'sales_tool'
   | 'viral_post';
+
+export interface VideoScene {
+  sceneNumber: number;
+  timeRange: string; // e.g. "00:00 - 00:04"
+  durationSeconds: number;
+  title: string;
+  visualDescription: string;
+  cameraDirection: string; // e.g. "Plan rapproché 45°", "Selfie dynamique", "Zoom avant fluide"
+  voiceoverText: string; // Script voix-off mot à mot
+  screenText: string; // Texte incrusté à l'écran / Captions
+  soundEffectOrMusic: string; // Bruitage / Transition sonore
+  visualThemeColor?: string; // Hex color code for preview
+}
+
+export type VideoFormat = 'tiktok_reels' | 'whatsapp_status' | 'feed_square' | 'youtube_landscape';
+export type VideoObjective = 'product_demo' | 'flash_promo' | 'customer_review' | 'behind_scenes' | 'expert_tip' | 'new_launch';
+export type VideoDuration = '15s' | '30s' | '60s';
+
+export interface GeneratedVideoScript {
+  id?: string;
+  title: string;
+  hook: string;
+  duration: VideoDuration;
+  format: VideoFormat;
+  objective: VideoObjective;
+  targetAudience: string;
+  scenes: VideoScene[];
+  totalDurationSeconds: number;
+  voiceoverFullScript: string;
+  recommendedMusic: {
+    genre: string;
+    mood: string;
+    bpm: string;
+    searchKeywords: string;
+  };
+  filmingTips: string[];
+  captionAndHashtags: {
+    postCaption: string;
+    hashtags: string[];
+    callToAction: string;
+  };
+  srtSubtitles: string;
+  createdAt?: string;
+}
 
 export interface HistoryItem {
   id: string;

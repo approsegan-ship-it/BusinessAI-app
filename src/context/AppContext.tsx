@@ -28,6 +28,9 @@ import {
 } from '../services/growthEngine';
 import { PRICING_PLANS, getPlanConfig, PlanId } from '../config/plans';
 import { generateUniqueId, ensureUniqueIds } from '../utils/idGenerator';
+import { Language, getTranslation } from '../i18n/translations';
+import { CurrencyCode, formatPriceWithCurrency } from '../config/currency';
+import { OFFICIAL_PAYMENT_NUMBER } from '../components/PaymentInstructionModal';
 
 interface ShareModalPayload {
   title: string;
@@ -60,10 +63,22 @@ interface AppContextType {
   setIsAuthModalOpen: (open: boolean) => void;
   isPricingModalOpen: boolean;
   setIsPricingModalOpen: (open: boolean) => void;
+  isPaymentModalOpen: boolean;
+  setIsPaymentModalOpen: (open: boolean) => void;
+  paymentPlan: PlanId;
+  openPaymentModal: (planId?: PlanId) => void;
   loginUser: (email: string, name: string) => void;
   logoutUser: () => void;
   activePresetPrompt: string | null;
   setActivePresetPrompt: (prompt: string | null) => void;
+
+  // Language & Multi-Currency
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  displayCurrency: CurrencyCode;
+  setDisplayCurrency: (cur: CurrencyCode) => void;
+  t: (key: string, params?: Record<string, any>) => string;
+  formatMoney: (fcfaAmount: number) => string;
 
   // Growth & Virality state
   badges: Badge[];
@@ -117,6 +132,8 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'businessai_notifications_v2',
   NOTIF_PREFS: 'businessai_notif_prefs_v2',
   ONBOARDING: 'businessai_onboarding_v2',
+  LANGUAGE: 'businessai_lang_v1',
+  CURRENCY: 'businessai_currency_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -130,7 +147,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isEarnCreditsModalOpen, setIsEarnCreditsModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentPlan, setPaymentPlan] = useState<PlanId>('starter');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Persistent Language
+  const [language, setLanguageState] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.LANGUAGE) as Language;
+      return saved && ['fr', 'en', 'es', 'pt', 'ar'].includes(saved) ? saved : 'fr';
+    } catch {
+      return 'fr';
+    }
+  });
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.lang = lang;
+    } catch (e) {
+      console.warn('LocalStorage error on language save', e);
+    }
+  };
+
+  useEffect(() => {
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = language;
+  }, [language]);
+
+  // Persistent Display Currency
+  const [displayCurrency, setDisplayCurrencyState] = useState<CurrencyCode>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CURRENCY) as CurrencyCode;
+      return saved && ['FCFA', 'EUR', 'USD', 'GHS', 'NGN', 'CAD'].includes(saved) ? saved : 'FCFA';
+    } catch {
+      return 'FCFA';
+    }
+  });
+
+  const setDisplayCurrency = (cur: CurrencyCode) => {
+    setDisplayCurrencyState(cur);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CURRENCY, cur);
+    } catch (e) {
+      console.warn('LocalStorage error on currency save', e);
+    }
+  };
+
+  const t = (key: string, params?: Record<string, any>): string => {
+    return getTranslation(language, key, params);
+  };
+
+  const formatMoney = (fcfaAmount: number): string => {
+    return formatPriceWithCurrency(fcfaAmount, displayCurrency);
+  };
+
+  const openPaymentModal = (planId: PlanId = 'starter') => {
+    setPaymentPlan(planId === 'free' ? 'starter' : planId);
+    setIsPaymentModalOpen(true);
+  };
 
   // Persistent Company Profile
   const [company, setCompany] = useState<CompanyProfile>(() => {
@@ -174,13 +251,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         // Normalize plan if legacy 'premium' was stored
         const plan: UserPlan = parsed.plan === 'premium' ? 'pro' : (parsed.plan || 'free');
-        const planLimit = plan === 'business' ? 2000 : plan === 'pro' ? 500 : plan === 'starter' ? 100 : 10;
-        const creditsUsed = parsed.creditsUsed ?? 2;
+        const planLimit = plan === 'business' ? 2000 : plan === 'pro' ? 500 : plan === 'starter' ? 100 : 0;
+        const creditsUsed = parsed.creditsUsed ?? 0;
         return {
           ...parsed,
           plan,
           maxCredits: planLimit,
-          availableCredits: parsed.availableCredits ?? Math.max(0, planLimit - creditsUsed),
+          availableCredits: plan === 'free' ? 0 : (parsed.availableCredits ?? Math.max(0, planLimit - creditsUsed)),
           referralCode: parsed.referralCode || generateReferralCode(DEFAULT_COMPANY.name),
         };
       }
@@ -192,9 +269,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: 'Entrepreneur',
       email: 'demo@businessai.app',
       plan: 'free',
-      creditsUsed: 2,
-      maxCredits: 10,
-      availableCredits: 8,
+      creditsUsed: 0,
+      maxCredits: 0,
+      availableCredits: 0,
       isLoggedIn: true,
       companyName: DEFAULT_COMPANY.name,
       referralCode: initialCode,
@@ -513,6 +590,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const consumeCredit = (cost: number = 1): boolean => {
     const planConfig = getPlanConfig(user.plan);
 
+    // Free plan has 0 generations: must pay first to use AI
+    if (user.plan === 'free' || user.maxCredits <= 0) {
+      addToast(
+        'warning',
+        'Paiement requis pour activer l’IA',
+        'L’utilisation de l’Assistant et des générateurs IA nécessite un forfait actif (Starter dès 4 900 FCFA, Pro ou Business).'
+      );
+      setIsPricingModalOpen(true);
+      return false;
+    }
+
     // Strict quota check: prevent generating if limit is reached
     if (user.availableCredits < cost || user.creditsUsed >= user.maxCredits) {
       addToast(
@@ -756,10 +844,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAuthModalOpen,
         isPricingModalOpen,
         setIsPricingModalOpen,
+        isPaymentModalOpen,
+        setIsPaymentModalOpen,
+        paymentPlan,
+        openPaymentModal,
         loginUser,
         logoutUser,
         activePresetPrompt,
         setActivePresetPrompt,
+
+        // Language & Multi-Currency
+        language,
+        setLanguage,
+        displayCurrency,
+        setDisplayCurrency,
+        t,
+        formatMoney,
 
         // Growth & Virality
         badges,
