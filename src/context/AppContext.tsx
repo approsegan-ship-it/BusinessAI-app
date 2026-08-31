@@ -595,7 +595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast(
         'warning',
         'Paiement requis pour activer l’IA',
-        'L’utilisation de l’Assistant et des générateurs IA nécessite un forfait actif (Starter dès 4 900 FCFA, Pro ou Business).'
+        `L’utilisation de l’Assistant et des générateurs IA nécessite un forfait actif (Starter dès ${PRICING_PLANS.starter.formattedPrice}, Pro ou Business).`
       );
       setIsPricingModalOpen(true);
       return false;

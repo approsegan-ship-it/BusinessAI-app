@@ -1,51 +1,52 @@
-# BusinessAI — Assistant IA Commercial & Marketing pour PME
+# BusinessAI — Plateforme IA Commerciale, Marketing & Vidéo pour PME
 
-BusinessAI est une plateforme complète et moderne permettant aux commerçants, PME et entrepreneurs de générer des contenus marketing percutants, des fiches produits optimisées pour la vente, des réponses clients professionnelles pour WhatsApp & SMS, et de piloter leur stratégie commerciale avec l'intelligence artificielle Gemini.
+BusinessAI est une plateforme complète et moderne permettant aux commerçants, PME et entrepreneurs de générer des contenus marketing percutants, des storyboards vidéo TikTok & Reels, des fiches produits optimisées pour la vente, des réponses clients professionnelles pour WhatsApp & SMS, et de piloter leur stratégie commerciale avec l'intelligence artificielle Gemini 3.7.
 
 ---
 
 ## 🌟 Fonctionnalités Incluses
 
-1. **Tableau de Bord & Métriques Clés (`Dashboard.tsx`)**
-   - Suivi des générations IA restantes et niveau de forfait.
-   - Accès rapide en 1 clic aux 4 piliers d'automatisation.
+1. **Tableau de Bord & Métriques Clés (`src/components/Dashboard.tsx`)**
+   - Suivi des crédits IA restants, état du forfait et raccourcis rapides.
    - Statistiques de conversion et aperçu des derniers contenus générés.
 
-2. **Assistant IA d'Entreprise (`AIAssistant.tsx`)**
+2. **Générateur Vidéo & Storyboard TikTok / Reels (`src/components/VideoGenerator.tsx`)**
+   - Scénarisation minutée (15s, 30s, 60s) en formats 9:16 vertical, 1:1 carré ou 16:9 paysage.
+   - Accroches anti-scroll (Hooks), scripts voix-off mot à mot, instructions de cadrage smartphone.
+   - Simulateur smartphone interactif avec lecture de voix-off par synthèse vocale (TTS).
+   - Prompteur plein écran et export automatique des sous-titres synchronisés `.SRT` et dossiers de tournage `.TXT`.
+
+3. **Assistant IA Commercial & Stratégie (`src/components/AIAssistant.tsx`)**
    - Chat interactif multi-tours alimenté par Gemini 3.7 Flash.
    - Injection automatique des directives de marque, devises et coordonnées de l'entreprise.
 
-3. **Générateur de Réseaux Sociaux & Viralité (`SocialGenerator.tsx`, `ViralPostModal.tsx`)**
-   - Posts Facebook, Instagram, statuts WhatsApp engageants et slogans.
-   - Formules virales (offres flash, concours, avant/après).
-   - Partage en 1 clic vers WhatsApp et copie rapide dans le presse-papiers.
+4. **Générateur de Publications & Viralité (`src/components/SocialGenerator.tsx`, `src/components/ViralPostModal.tsx`)**
+   - Posts Facebook, Instagram, statuts WhatsApp engageants et slogans publicitaires.
+   - Formules virales (offres flash, concours, avant/après) avec partage direct WhatsApp.
 
-4. **Catalogue & Fiches Produits Persuasives (`ProductCatalog.tsx`)**
-   - Création de fiches produits avec titres accrocheurs, arguments de vente clés et appels à l'action.
+5. **Catalogue & Fiches Produits Persuasives (`src/components/ProductCatalog.tsx`)**
+   - Rédaction d'arguments de vente percutants, titres magnétiques et appels à l'action.
    - Gestion des prix, catégories et devises locales (FCFA, EUR, USD, etc.).
 
-5. **Gestionnaire de Réponses Clients (`CustomerResponses.tsx`)**
+6. **Gestionnaire de Réponses Clients & SAV (`src/components/CustomerResponses.tsx`)**
    - Modèles pré-configurés : demande de prix, gestion des objections, relances d'impayés, SAV, remerciements.
    - Adaptation instantanée au ton de l'entreprise.
 
-6. **Outils Commerciaux & Rentabilité (`SalesTools.tsx`)**
+7. **Outils Commerciaux & Rentabilité (`src/components/SalesTools.tsx`)**
    - Calculateur de marge commerciale, taux de marque, coefficient multiplicateur et TVA.
    - Simulateur de promotions et générateur de propositions commerciales.
 
-7. **Guide & Intégration WhatsApp IA (`WhatsAppTutorialModal.tsx`)**
-   - Générateur interactif de liens directs `wa.me` avec messages personnalisés.
-   - Documentation et code complet pour les webhooks Meta Cloud API et Twilio.
+8. **Guide & Intégration WhatsApp Business (`src/components/WhatsAppTutorialModal.tsx`)**
+   - Générateur interactif de liens directs `wa.me` avec messages pré-remplis.
+   - Documentation et architecture pour les webhooks Meta Cloud API et Twilio.
 
-8. **Profil d'Entreprise & Base de Connaissances (`CompanyProfileView.tsx`)**
+9. **Profil d'Entreprise & Base de Connaissances (`src/components/CompanyProfileView.tsx`)**
    - Personnalisation de l'identité, numéro WhatsApp, adresse, horaires et ton de communication.
    - Modèles pré-configurés par secteur (Mode, Restaurant, E-commerce, Beauté, Artisanat).
 
-9. **Forfaits & Monétisation (`PricingView.tsx`, `PricingModal.tsx`)**
-   - Grille tarifaire moderne (Free, Starter 2 500 FCFA, Pro 5 500 FCFA, Business 15 000 FCFA).
-   - Architecture prête pour Mobile Money (Wave, Orange Money, MTN, Moov) et Carte Bancaire.
-
-10. **Système de Parrainage & Badges de Fidélité (`ReferralView.tsx`, `BadgesGrid.tsx`)**
-    - Récompenses de crédits par partage et déblocage de succès.
+10. **Grille Tarifaire & Paiements Sécurisés (`src/components/PricingView.tsx`, `src/components/PricingModal.tsx`)**
+    - Forfaits adaptés aux PME : Free (0 FCFA), Starter (9 900 FCFA/mois), Pro (19 900 FCFA/mois), Business (49 000 FCFA/mois).
+    - Validation des transferts Mobile Money (Wave, Orange Money, MTN, Moov) au numéro officiel `0163638893`.
 
 ---
 
@@ -55,7 +56,7 @@ Le projet respecte une séparation stricte entre le client et le serveur :
 
 ```
 ├── server.ts                  # Serveur backend Express + Proxy sécurisé Gemini API
-├── .env.example               # Déclaration des variables d'environnement (SANS clés réelles)
+├── .env.example               # Déclaration des variables d'environnement (SANS secrets)
 ├── .gitignore                 # Exclusion des fichiers sensibles, dépendances et builds
 ├── metadata.json              # Métadonnées et permissions de l'application
 ├── package.json               # Scripts de build, start et dépendances
@@ -63,18 +64,29 @@ Le projet respecte une séparation stricte entre le client et le serveur :
 ├── src/
 │   ├── main.tsx               # Point d'entrée React 19
 │   ├── App.tsx                # Routage des vues et navigation
-│   ├── index.css              # Styles globaux Tailwind v4
+│   ├── index.css              # Styles globaux Tailwind
 │   ├── types.ts               # Définitions TypeScript strictes
 │   ├── components/            # Composants UI modulaires
+│   │   ├── VideoGenerator.tsx # Studio vidéo & storyboard
+│   │   ├── Dashboard.tsx      # Tableau de bord principal
+│   │   ├── AIAssistant.tsx    # Assistant chat intelligent
+│   │   ├── SocialGenerator.tsx# Générateur de posts
+│   │   ├── ProductCatalog.tsx # Fiches produits
+│   │   ├── CustomerResponses.tsx # Réponses clients & SAV
+│   │   ├── SalesTools.tsx     # Outils de calcul commercial
+│   │   ├── PricingView.tsx    # Grille de forfaits & FAQ
+│   │   ├── PricingModal.tsx   # Fenêtre d'abonnement & devises
+│   │   └── PaymentInstructionModal.tsx # Validation Mobile Money
 │   ├── config/
-│   │   └── plans.ts           # Configuration centralisée des forfaits et fonctionnalités
+│   │   ├── plans.ts           # Configuration centralisée des forfaits
+│   │   └── currency.ts        # Devises et taux de conversion
 │   ├── context/
 │   │   └── AppContext.tsx     # État global et persistance locale
 │   ├── services/
 │   │   ├── geminiService.ts   # Service client d'appel aux routes d'API
 │   │   └── growthEngine.ts    # Moteur de croissance et viralité
 │   └── utils/
-│       ├── defaultData.ts     # Données par défaut et modèles par secteur
+│       ├── defaultData.ts     # Données par défaut et modèles sectoriels
 │       └── idGenerator.ts     # Générateur d'identifiants
 ```
 
@@ -82,14 +94,14 @@ Le projet respecte une séparation stricte entre le client et le serveur :
 
 ## 🔒 Sécurité des Clés API
 
-- **Aucune clé API n'est écrite en dur dans le code source.**
-- Les clés API (comme `GEMINI_API_KEY`) sont stockées exclusivement dans les variables d'environnement du serveur (`process.env.GEMINI_API_KEY`).
-- Le serveur Express expose des routes protégées (`/api/gemini/generate`, `/api/gemini/chat`) qui proxifient les requêtes sans jamais exposer la clé secrète au navigateur.
-- En l'absence de clé API, le serveur active automatiquement un moteur de secours intelligent afin que l'application reste utilisable.
+- **Aucune clé API n'est exposée côté navigateur.**
+- La clé `GEMINI_API_KEY` est stockée exclusivement dans les variables d'environnement du serveur (`process.env.GEMINI_API_KEY`).
+- Le serveur Express expose des routes protégées (`/api/gemini/generate`, `/api/gemini/chat`) qui exécutent les requêtes en toute sécurité.
+- En cas d'absence momentanée de clé API, un moteur de secours intelligent intégré prend le relais pour maintenir l'expérience utilisateur.
 
 ---
 
-## 🚀 Démarrage Rapide
+## 🚀 Démarrage Rapide en Local
 
 ### 1. Installation des dépendances
 ```bash
@@ -97,7 +109,7 @@ npm install
 ```
 
 ### 2. Configuration des variables d'environnement
-Créez un fichier `.env` basé sur `.env.example` :
+Créez votre fichier `.env` basé sur `.env.example` :
 ```bash
 cp .env.example .env
 ```
@@ -120,20 +132,23 @@ npm start
 
 ---
 
-## 📦 Synchronisation GitHub
+## 🔗 Comment Connecter et Exporter vers GitHub
 
-Pour synchroniser ce projet avec votre dépôt GitHub :
+### Option A : Depuis l'interface Google AI Studio (En 1 Clic)
+1. Cliquez sur le menu **Settings / Export** (ou l'icône GitHub en haut à droite).
+2. Choisissez **"Export to GitHub"** (ou "Download ZIP").
+3. Connectez votre compte GitHub et sélectionnez votre organisation ou créez un nouveau dépôt `business-ai`.
+4. Vos fichiers sont automatiquement synchronisés avec votre dépôt distant.
 
-1. Initialisez git (si ce n'est pas déjà fait) :
+### Option B : En Ligne de Commande (Git CLI)
+1. Créez un nouveau dépôt vide sur votre compte GitHub (ex: `https://github.com/mon-compte/business-ai`).
+2. Dans le terminal de votre projet :
    ```bash
    git init
    git add .
-   git commit -m "Initial commit - Complete BusinessAI platform"
-   ```
-2. Liez votre dépôt distant :
-   ```bash
-   git remote add origin https://github.com/VOTRE_UTILISATEUR/business-ai.git
+   git commit -m "feat: complete BusinessAI platform with video generator & pricing"
    git branch -M main
+   git remote add origin https://github.com/mon-compte/business-ai.git
    git push -u origin main
    ```
-*(Le fichier `.gitignore` s'assure que vos secrets `.env` et le dossier `node_modules` ne seront jamais envoyés sur GitHub).*
+*(Le fichier `.gitignore` protège automatiquement vos variables d'environnement privées `.env` et vos modules).*

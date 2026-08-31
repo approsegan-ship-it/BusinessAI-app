@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   PLANS_ARRAY,
+  PRICING_PLANS,
   COMPARISON_MATRIX,
   PricingPlan,
   PlanId,
@@ -70,7 +71,7 @@ export const PricingView: React.FC = () => {
     },
     {
       q: 'Pourquoi l’offre STARTER est-elle recommandée ?',
-      a: `L’offre STARTER à ${formatPriceWithCurrency(4900, displayCurrency)}/mois offre 100 générations, l’historique étendu et tous les générateurs marketing. C’est le meilleur rapport qualité/prix pour animer quotidiennement ses réseaux et convertir ses prospects.`,
+      a: `L’offre STARTER à ${formatPriceWithCurrency(PRICING_PLANS.starter.price, displayCurrency)}/mois offre ${PRICING_PLANS.starter.monthlyGenerations} générations, l’historique étendu et tous les générateurs marketing. C’est le meilleur rapport qualité/prix pour animer quotidiennement ses réseaux et convertir ses prospects.`,
     },
     {
       q: 'Y a-t-il un engagement ou des frais cachés ?',
