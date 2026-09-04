@@ -5,6 +5,9 @@ import {
   CallScenario,
   VoicePersona,
   CallTurn,
+  ImageAspectRatio,
+  ImageStyle,
+  ImageCategory,
 } from '../types';
 
 export function buildCompanySystemContext(company: CompanyProfile): string {
@@ -820,5 +823,293 @@ function createFallbackCallTurns(params: GenerateAICallScriptParams): CallTurn[]
     },
   ];
 }
+
+// ---------------------------------------------------------------------------
+// Image Generation Services
+// ---------------------------------------------------------------------------
+
+export async function generateImageWithAI(
+  prompt: string,
+  aspectRatio: ImageAspectRatio = '1:1',
+  style: ImageStyle = 'photorealistic',
+  company?: CompanyProfile
+): Promise<{
+  imageUrl: string;
+  isFallback: boolean;
+  modelUsed?: string;
+  warning?: string;
+}> {
+  try {
+    const response = await fetch('/api/gemini/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        aspectRatio,
+        style,
+        companyName: company?.name,
+        businessSector: company?.sector,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.imageUrl) {
+        return {
+          imageUrl: data.imageUrl,
+          isFallback: false,
+          modelUsed: data.modelUsed || 'gemini-3.1-flash-image',
+        };
+      }
+    }
+
+    const errData = await response.json().catch(() => ({}));
+    console.warn('[BusinessAI Image] API fallback requis:', errData);
+
+    const fallbackImage = generateBusinessGraphicCanvas(prompt, aspectRatio, style, company);
+    return {
+      imageUrl: fallbackImage,
+      isFallback: true,
+      modelUsed: 'Studio Graphique HD BusinessAI',
+      warning: errData.requiresPaidKey
+        ? 'Visuel haute définition généré par le Studio Graphique BusinessAI (Activez un modèle payant pour le rendu direct photoréaliste Imagen/Flash-Image).'
+        : undefined,
+    };
+  } catch (error: any) {
+    console.error('Erreur generateImageWithAI:', error);
+    const fallbackImage = generateBusinessGraphicCanvas(prompt, aspectRatio, style, company);
+    return {
+      imageUrl: fallbackImage,
+      isFallback: true,
+      modelUsed: 'Studio Graphique HD BusinessAI',
+    };
+  }
+}
+
+/**
+ * Generates an SVG high-resolution vector data URI matching the prompt & company identity
+ */
+export function generateBusinessGraphicCanvas(
+  prompt: string,
+  aspectRatio: ImageAspectRatio = '1:1',
+  style: ImageStyle = 'photorealistic',
+  company?: CompanyProfile
+): string {
+  let width = 1080;
+  let height = 1080;
+
+  if (aspectRatio === '9:16') {
+    width = 1080;
+    height = 1920;
+  } else if (aspectRatio === '16:9') {
+    width = 1920;
+    height = 1080;
+  } else if (aspectRatio === '4:3') {
+    width = 1440;
+    height = 1080;
+  } else if (aspectRatio === '3:4') {
+    width = 1080;
+    height = 1440;
+  }
+
+  // Pick color themes based on style
+  let gradStart = '#4F46E5';
+  let gradMid = '#7C3AED';
+  let gradEnd = '#0F172A';
+  let accentColor = '#38BDF8';
+  let glowColor = 'rgba(56, 189, 248, 0.4)';
+
+  if (style === 'vibrant_afrobeats') {
+    gradStart = '#EA580C';
+    gradMid = '#D97706';
+    gradEnd = '#7C2D12';
+    accentColor = '#FBBF24';
+    glowColor = 'rgba(251, 191, 36, 0.4)';
+  } else if (style === 'luxury_gold') {
+    gradStart = '#1E1B4B';
+    gradMid = '#18181B';
+    gradEnd = '#09090B';
+    accentColor = '#F59E0B';
+    glowColor = 'rgba(245, 158, 11, 0.5)';
+  } else if (style === 'studio_minimalist') {
+    gradStart = '#0F172A';
+    gradMid = '#1E293B';
+    gradEnd = '#020617';
+    accentColor = '#38BDF8';
+    glowColor = 'rgba(56, 189, 248, 0.3)';
+  } else if (style === 'commercial_3d') {
+    gradStart = '#2563EB';
+    gradMid = '#4F46E5';
+    gradEnd = '#030712';
+    accentColor = '#60A5FA';
+    glowColor = 'rgba(96, 165, 250, 0.4)';
+  } else if (style === 'modern_graphic') {
+    gradStart = '#059669';
+    gradMid = '#0D9488';
+    gradEnd = '#064E3B';
+    accentColor = '#34D399';
+    glowColor = 'rgba(52, 211, 153, 0.4)';
+  }
+
+  const companyName = (company?.name || 'VOTRE ENTREPRISE').toUpperCase();
+  const phone = company?.phone || company?.whatsapp || '01 63 63 88 93';
+  const cleanPrompt = prompt.replace(/[<>&"]/g, '').trim();
+  const shortTitle = cleanPrompt.length > 55 ? cleanPrompt.slice(0, 52) + '...' : cleanPrompt;
+
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${gradStart}" />
+        <stop offset="50%" stop-color="${gradMid}" />
+        <stop offset="100%" stop-color="${gradEnd}" />
+      </linearGradient>
+      <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="rgba(255, 255, 255, 0.12)" />
+        <stop offset="100%" stop-color="rgba(255, 255, 255, 0.03)" />
+      </linearGradient>
+      <radialGradient id="glowCircle" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${accentColor}" stop-opacity="0.35" />
+        <stop offset="100%" stop-color="${accentColor}" stop-opacity="0" />
+      </radialGradient>
+      <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.6" />
+      </filter>
+    </defs>
+
+    <!-- Background -->
+    <rect width="${width}" height="${height}" fill="url(#bgGrad)" />
+
+    <!-- Ambient Glows -->
+    <circle cx="${width * 0.8}" cy="${height * 0.2}" r="${width * 0.45}" fill="url(#glowCircle)" />
+    <circle cx="${width * 0.2}" cy="${height * 0.8}" r="${width * 0.4}" fill="url(#glowCircle)" />
+
+    <!-- Geometric Decorative Mesh -->
+    <g opacity="0.1" stroke="#FFF" stroke-width="1.5">
+      <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.35}" fill="none" />
+      <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.45}" fill="none" stroke-dasharray="10 10" />
+    </g>
+
+    <!-- Header / Brand Badge -->
+    <g transform="translate(${width * 0.08}, ${height * 0.08})">
+      <rect x="0" y="0" width="${Math.min(width * 0.6, 380)}" height="54" rx="27" fill="rgba(0,0,0,0.4)" stroke="${accentColor}" stroke-width="1.5" />
+      <circle cx="27" cy="27" r="14" fill="${accentColor}" />
+      <text x="27" y="32" font-family="system-ui, sans-serif" font-size="16" font-weight="900" fill="#000" text-anchor="middle">★</text>
+      <text x="52" y="34" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#FFF" letter-spacing="1.5">${companyName}</text>
+    </g>
+
+    <!-- Quality / Sector Pill -->
+    <g transform="translate(${width * 0.08}, ${height * 0.14})">
+      <rect x="0" y="0" width="220" height="34" rx="17" fill="${glowColor}" />
+      <text x="110" y="22" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#FFF" text-anchor="middle" letter-spacing="1">✨ EXCELLENCE &amp; QUALITÉ</text>
+    </g>
+
+    <!-- Center Product Showcase Card -->
+    <g transform="translate(${width * 0.08}, ${height * 0.24})">
+      <rect width="${width * 0.84}" height="${height * 0.52}" rx="32" fill="url(#cardGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="2" filter="url(#dropShadow)" />
+
+      <!-- Inner Glow Spot -->
+      <circle cx="${(width * 0.84) / 2}" cy="${(height * 0.52) / 2}" r="140" fill="url(#glowCircle)" />
+
+      <!-- Central Visual Icon / Trophy -->
+      <g transform="translate(${(width * 0.84) / 2 - 40}, ${(height * 0.52) / 2 - 80}) scale(2)">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="${accentColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+
+      <!-- Main Catchphrase / Prompt Headline -->
+      <text x="${(width * 0.84) / 2}" y="${height * 0.52 * 0.72}" font-family="system-ui, sans-serif" font-size="${Math.max(22, Math.min(width * 0.038, 42))}" font-weight="900" fill="#FFFFFF" text-anchor="middle" filter="url(#dropShadow)">
+        ${shortTitle}
+      </text>
+
+      <!-- Subtitle badge -->
+      <text x="${(width * 0.84) / 2}" y="${height * 0.52 * 0.82}" font-family="system-ui, sans-serif" font-size="${Math.max(16, Math.min(width * 0.022, 24))}" font-weight="500" fill="#E2E8F0" text-anchor="middle">
+        ${company?.sector || 'Produit & Prestation Certifiés'}
+      </text>
+    </g>
+
+    <!-- Bottom Action Bar / Contact -->
+    <g transform="translate(${width * 0.08}, ${height * 0.82})">
+      <!-- CTA Button -->
+      <rect x="0" y="0" width="${Math.min(width * 0.5, 340)}" height="64" rx="32" fill="${accentColor}" filter="url(#dropShadow)" />
+      <text x="${Math.min(width * 0.5, 340) / 2}" y="39" font-family="system-ui, sans-serif" font-size="19" font-weight="800" fill="#0F172A" text-anchor="middle">
+        COMMANDER RAPIDEMENT
+      </text>
+
+      <!-- WhatsApp / Phone info -->
+      <text x="${Math.min(width * 0.5, 340) + 24}" y="39" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">
+        📲 WhatsApp : ${phone}
+      </text>
+    </g>
+
+    <!-- Watermark Signature -->
+    <text x="${width * 0.92}" y="${height * 0.95}" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="rgba(255,255,255,0.4)" text-anchor="end">
+      BusinessAI Studio • Création Assistée par IA
+    </text>
+  </svg>
+  `;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Video Generation Services (Veo & Animated Studio)
+// ---------------------------------------------------------------------------
+
+export async function startVeoVideoGeneration(
+  prompt: string,
+  aspectRatio: '9:16' | '16:9' = '9:16',
+  resolution: '720p' | '1080p' = '720p'
+): Promise<{
+  operationName?: string;
+  error?: string;
+  requiresPaidKey?: boolean;
+}> {
+  try {
+    const res = await fetch('/api/gemini/generate-video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, aspectRatio, resolution }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return {
+        error: data.error || 'Erreur de génération vidéo',
+        requiresPaidKey: Boolean(data.requiresPaidKey),
+      };
+    }
+    return { operationName: data.operationName };
+  } catch (err: any) {
+    return { error: err.message || 'Erreur réseau' };
+  }
+}
+
+export async function pollVeoVideoStatus(
+  operationName: string
+): Promise<{ done: boolean; error?: any; videoAvailable?: boolean }> {
+  try {
+    const res = await fetch('/api/gemini/video-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operationName }),
+    });
+    if (!res.ok) return { done: false, error: 'Erreur statut' };
+    return await res.json();
+  } catch (err: any) {
+    return { done: false, error: err.message };
+  }
+}
+
+export async function downloadVeoVideoBlob(operationName: string): Promise<Blob> {
+  const res = await fetch('/api/gemini/video-download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationName }),
+  });
+  if (!res.ok) {
+    throw new Error('Impossible de télécharger le fichier vidéo');
+  }
+  return await res.blob();
+}
+
 
 

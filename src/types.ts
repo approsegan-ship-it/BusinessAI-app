@@ -3,6 +3,7 @@ export type AppTab =
   | 'dashboard'
   | 'assistant'
   | 'social'
+  | 'images'
   | 'video'
   | 'invoices'
   | 'ai_calls'
@@ -380,5 +381,42 @@ export interface AICallSession {
   notes?: string;
   createdAt: string;
 }
+
+export type ImageAspectRatio = '1:1' | '9:16' | '16:9' | '4:3' | '3:4';
+export type ImageStyle =
+  | 'photorealistic'
+  | 'studio_minimalist'
+  | 'commercial_3d'
+  | 'vibrant_afrobeats'
+  | 'luxury_gold'
+  | 'modern_graphic';
+
+export type ImageCategory = 'product' | 'poster' | 'social' | 'banner' | 'mockup';
+
+export interface GeneratedImage {
+  id: string;
+  title: string;
+  prompt: string;
+  imageUrl: string;
+  aspectRatio: ImageAspectRatio;
+  style: ImageStyle;
+  category: ImageCategory;
+  createdAt: string;
+  modelUsed?: string;
+  isFallback?: boolean;
+}
+
+export interface VideoGenerationJob {
+  id: string;
+  prompt: string;
+  operationName?: string;
+  aspectRatio: '9:16' | '16:9';
+  resolution: '720p' | '1080p';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  videoUrl?: string;
+  error?: string;
+  createdAt: string;
+}
+
 
 

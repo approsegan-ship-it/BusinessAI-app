@@ -7,7 +7,12 @@ import {
   GeneratedVideoScript,
   VideoScene,
 } from '../types';
-import { generateVideoScriptWithAI } from '../services/geminiService';
+import {
+  generateVideoScriptWithAI,
+  startVeoVideoGeneration,
+  pollVeoVideoStatus,
+  downloadVeoVideoBlob,
+} from '../services/geminiService';
 import {
   Video,
   Sparkles,
@@ -162,8 +167,19 @@ export const VideoGenerator: React.FC = () => {
 
   // Results State
   const [generatedScript, setGeneratedScript] = useState<GeneratedVideoScript | null>(null);
-  const [activeTab, setActiveTab] = useState<'simulator' | 'scenes' | 'teleprompter' | 'srt' | 'music' | 'post'>('simulator');
+  const [activeTab, setActiveTab] = useState<'simulator' | 'scenes' | 'teleprompter' | 'srt' | 'music' | 'post' | 'veo_render'>('simulator');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Google Veo & Studio Video Render State
+  const [veoLoading, setVeoLoading] = useState(false);
+  const [veoStatusText, setVeoStatusText] = useState('');
+  const [veoVideoUrl, setVeoVideoUrl] = useState<string | null>(null);
+  const [veoError, setVeoError] = useState<string | null>(null);
+
+  // In-browser Animated Video Studio Render
+  const [isExportingStudioVideo, setIsExportingStudioVideo] = useState(false);
+  const [studioExportProgress, setStudioExportProgress] = useState(0);
+  const [studioVideoUrl, setStudioVideoUrl] = useState<string | null>(null);
 
   // Simulator Player State
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
@@ -173,6 +189,291 @@ export const VideoGenerator: React.FC = () => {
   const [isTeleprompterFullscreen, setIsTeleprompterFullscreen] = useState(false);
   const [teleprompterSpeed, setTeleprompterSpeed] = useState(2); // 1 = slow, 2 = normal, 3 = fast
   const teleprompterRef = useRef<HTMLDivElement>(null);
+
+  // Helper text wrapper for canvas video rendering
+  const wrapText = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+    lineHeight: number
+  ) => {
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = ctx.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        ctx.fillText(line, x, currentY);
+        line = words[n] + ' ';
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, currentY);
+  };
+
+  // Google Veo Video Generation Handler
+  const handleStartVeoGeneration = async () => {
+    if (!generatedScript) return;
+    setVeoLoading(true);
+    setVeoError(null);
+    setVeoStatusText('Connexion au modèle Veo 3.1...');
+
+    try {
+      const promptForVeo = `Cinematic commercial video for ${company.name || 'our brand'}: ${generatedScript.title}. ${generatedScript.hook}. Vibrant lighting, sharp professional focus, product showcase, smooth cinematic camera motion.`;
+      const ratio = format === 'landscape_16_9' ? '16:9' : '9:16';
+
+      const res = await startVeoVideoGeneration(promptForVeo, ratio, '720p');
+
+      if (res.error) {
+        setVeoError(res.error);
+        if (res.requiresPaidKey) {
+          addToast(
+            'info',
+            'Veo requiert une clé facturée',
+            'Utilisez notre Studio Vidéo MP4 ci-dessous pour générer votre vidéo instantanément sans frais.'
+          );
+        } else {
+          addToast('error', 'Erreur Veo', res.error);
+        }
+        setVeoLoading(false);
+        return;
+      }
+
+      const operationName = res.operationName;
+      if (!operationName) {
+        setVeoError('Aucun identifiant d’opération retourné');
+        setVeoLoading(false);
+        return;
+      }
+
+      setVeoStatusText('Veo prépare le flux vidéo en arrière-plan...');
+
+      // Polling loop
+      let attempts = 0;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const status = await pollVeoVideoStatus(operationName);
+          setVeoStatusText(`Traitement vidéo Veo... (${attempts * 5}s)`);
+
+          if (status.done) {
+            clearInterval(pollInterval);
+            if (status.error) {
+              setVeoError(typeof status.error === 'string' ? status.error : 'Erreur lors du traitement vidéo');
+              setVeoLoading(false);
+              return;
+            }
+
+            setVeoStatusText('Téléchargement du fichier vidéo...');
+            const blob = await downloadVeoVideoBlob(operationName);
+            const url = URL.createObjectURL(blob);
+            setVeoVideoUrl(url);
+            setVeoLoading(false);
+            setVeoStatusText('');
+            addToast('success', 'Vidéo Veo prête !', 'Votre vidéo IA a été générée avec succès.');
+          } else if (attempts > 36) {
+            clearInterval(pollInterval);
+            setVeoError('Délai d’attente dépassé pour la vidéo Veo.');
+            setVeoLoading(false);
+          }
+        } catch (err: any) {
+          clearInterval(pollInterval);
+          setVeoError(err.message || 'Erreur de communication avec Veo');
+          setVeoLoading(false);
+        }
+      }, 5000);
+    } catch (err: any) {
+      setVeoError(err.message || 'Erreur interne');
+      setVeoLoading(false);
+    }
+  };
+
+  // Instant Studio Animated Video Export Engine
+  const handleExportStudioAnimatedVideo = async () => {
+    if (!generatedScript) return;
+
+    setIsExportingStudioVideo(true);
+    setStudioExportProgress(0);
+
+    try {
+      const isVertical = format !== 'landscape_16_9';
+      const width = isVertical ? 720 : 1280;
+      const height = isVertical ? 1280 : 720;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        throw new Error('Canvas 2D context non supporté');
+      }
+
+      const stream = canvas.captureStream(30);
+
+      let mimeType = 'video/webm;codecs=vp9';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = '';
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const videoBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
+        const url = URL.createObjectURL(videoBlob);
+        setStudioVideoUrl(url);
+        setIsExportingStudioVideo(false);
+        setStudioExportProgress(100);
+        addToast('success', 'Vidéo MP4/WebM générée !', 'Votre vidéo animée est prête au visionnage et téléchargement.');
+      };
+
+      recorder.start();
+
+      const scenes = generatedScript.scenes;
+      const totalScenes = scenes.length;
+      const framesPerScene = 90; // 3 seconds at 30 fps
+      let currentFrame = 0;
+      const totalFrames = totalScenes * framesPerScene;
+
+      const renderFrame = () => {
+        const sceneIndex = Math.min(totalScenes - 1, Math.floor(currentFrame / framesPerScene));
+        const scene = scenes[sceneIndex];
+        const sceneLocalFrame = currentFrame % framesPerScene;
+        const progressInScene = sceneLocalFrame / framesPerScene;
+
+        // Background Gradient
+        const grad = ctx.createLinearGradient(0, 0, width, height);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.5, '#1e1b4b');
+        grad.addColorStop(1, '#312e81');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Ambient radial glow
+        const radGrad = ctx.createRadialGradient(width / 2, height * 0.35, 10, width / 2, height * 0.35, width * 0.6);
+        radGrad.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+        radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = radGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Story progress bar at top
+        const barY = height * 0.04;
+        const barSpacing = 8;
+        const totalBarWidth = width * 0.88;
+        const singleBarWidth = (totalBarWidth - (totalScenes - 1) * barSpacing) / totalScenes;
+
+        for (let i = 0; i < totalScenes; i++) {
+          const bx = width * 0.06 + i * (singleBarWidth + barSpacing);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.beginPath();
+          ctx.roundRect(bx, barY, singleBarWidth, 6, 3);
+          ctx.fill();
+
+          if (i < sceneIndex) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(bx, barY, singleBarWidth, 6, 3);
+            ctx.fill();
+          } else if (i === sceneIndex) {
+            ctx.fillStyle = '#ec4899';
+            ctx.beginPath();
+            ctx.roundRect(bx, barY, singleBarWidth * progressInScene, 6, 3);
+            ctx.fill();
+          }
+        }
+
+        // Header: Brand & Scene indicator
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 22px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`★ ${(company.name || 'BusinessAI').toUpperCase()}`, width * 0.06, height * 0.10);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`Scène ${scene.sceneNumber}/${totalScenes}`, width * 0.94, height * 0.10);
+
+        // Central Dynamic Text Card
+        const cardY = height * 0.28;
+        const cardHeight = height * 0.28;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.beginPath();
+        ctx.roundRect(width * 0.06, cardY, width * 0.88, cardHeight, 24);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.stroke();
+
+        ctx.fillStyle = '#fde047';
+        ctx.font = `bold ${isVertical ? '32px' : '26px'} system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        const screenText = scene.screenText || generatedScript.hook;
+        wrapText(ctx, screenText, width / 2, cardY + cardHeight * 0.40, width * 0.78, 38);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.fillText(`🎥 ${scene.cameraDirection || 'Plan Commercial'}`, width / 2, cardY + cardHeight * 0.82);
+
+        // Subtitle Card at bottom (Voiceover)
+        const subY = height * 0.64;
+        const subHeight = height * 0.24;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(width * 0.06, subY, width * 0.88, subHeight, 24);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ec4899';
+        ctx.font = 'bold 16px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('🎙️ VOIX-OFF :', width * 0.10, subY + 36);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `500 ${isVertical ? '20px' : '18px'} system-ui, sans-serif`;
+        wrapText(ctx, scene.voiceover, width * 0.10, subY + 74, width * 0.80, 28);
+
+        // Watermark Footer
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`📲 WhatsApp : ${company.whatsapp || company.phone || '01 63 63 88 93'}`, width / 2, height * 0.94);
+
+        currentFrame++;
+        setStudioExportProgress(Math.round((currentFrame / totalFrames) * 100));
+
+        if (currentFrame < totalFrames) {
+          requestAnimationFrame(renderFrame);
+        } else {
+          recorder.stop();
+        }
+      };
+
+      requestAnimationFrame(renderFrame);
+    } catch (err: any) {
+      console.error('Erreur export vidéo:', err);
+      setIsExportingStudioVideo(false);
+      addToast('error', 'Erreur export', err.message || 'Impossible de compiler la vidéo');
+    }
+  };
 
   // Apply a preset
   const handleApplyPreset = (preset: typeof VIDEO_PRESETS[0]) => {
@@ -787,6 +1088,7 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
               {/* Navigation View Tabs */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100">
                 {[
+                  { id: 'veo_render', label: '🎥 Rendu Vidéo MP4 (Veo & Studio)', icon: Video },
                   { id: 'simulator', label: '🎬 Simulateur Vidéo & Audio', icon: Tv },
                   { id: 'scenes', label: '📋 Découpage des Scènes', icon: Layers },
                   { id: 'teleprompter', label: '🎙️ Voix-Off & Prompteur', icon: Volume2 },
@@ -1258,6 +1560,181 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
                         text={`${generatedScript.captionAndHashtags.postCaption}\n\n${generatedScript.captionAndHashtags.hashtags.join(' ')}`}
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 7: VEO & STUDIO VIDEO RENDERING */}
+              {activeTab === 'veo_render' && (
+                <div className="space-y-6">
+                  {/* Option 1: Instant In-Browser Studio Animated Video Render */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 text-white border border-indigo-500/30 shadow-lg space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+                            ⚡ Immédiat &amp; Sans Quota
+                          </span>
+                          <span className="text-xs text-indigo-200 font-mono">Format {format === 'landscape_16_9' ? '16:9' : '9:16'}</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-white mt-1">
+                          Studio Export Vidéo Animée MP4 / WebM
+                        </h3>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          Compile votre storyboard en vidéo avec transitions, animations de texte, barre de progression et coordonnées WhatsApp.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleExportStudioAnimatedVideo}
+                        disabled={isExportingStudioVideo}
+                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shrink-0"
+                      >
+                        {isExportingStudioVideo ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Rendu en cours ({studioExportProgress}%)...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Film className="w-4 h-4" />
+                            <span>Générer le Fichier Vidéo</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Progress Bar during render */}
+                    {isExportingStudioVideo && (
+                      <div className="space-y-1.5 p-3 rounded-xl bg-black/40 border border-white/10">
+                        <div className="flex justify-between text-xs text-indigo-200 font-mono">
+                          <span>Animation des plans ({generatedScript.scenes.length} scènes)...</span>
+                          <span>{studioExportProgress}%</span>
+                        </div>
+                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-pink-500 to-indigo-500 h-full transition-all duration-150"
+                            style={{ width: `${studioExportProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rendered Video Player */}
+                    {studioVideoUrl && (
+                      <div className="space-y-4 pt-2 border-t border-white/10">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                            <Check className="w-4 h-4" /> Fichier vidéo prêt pour diffusion
+                          </span>
+                          <a
+                            href={studioVideoUrl}
+                            download={`Video_${(company.name || 'BusinessAI').replace(/\s+/g, '_')}.webm`}
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Télécharger (.webm / .mp4)</span>
+                          </a>
+                        </div>
+
+                        <div className="flex justify-center bg-black/80 rounded-2xl p-4 border border-white/10 overflow-hidden">
+                          <video
+                            src={studioVideoUrl}
+                            controls
+                            className={`rounded-xl shadow-2xl ${
+                              format === 'landscape_16_9' ? 'w-full max-w-lg aspect-video' : 'max-h-[380px] aspect-[9/16]'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Option 2: Google Veo 3.1 AI Generation */}
+                  <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                            🤖 Google Veo 3.1 Preview
+                          </span>
+                          <span className="text-xs text-slate-500">Moteur Vidéo Générative DeepMind</span>
+                        </div>
+                        <h4 className="text-base font-bold text-slate-900 mt-1">
+                          Rendu Photoréaliste Cinématique Veo
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Envoie votre description au modèle Veo 3.1 pour générer une séquence vidéo publicitaire cinématique.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleStartVeoGeneration}
+                        disabled={veoLoading}
+                        className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                      >
+                        {veoLoading ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Génération Veo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Démarrer Rendu Veo</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Veo Status / Progress */}
+                    {veoLoading && (
+                      <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-center space-y-2 animate-pulse">
+                        <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin mx-auto" />
+                        <div className="text-xs font-bold text-indigo-950">{veoStatusText}</div>
+                        <p className="text-[11px] text-indigo-700">
+                          La génération vidéo par IA générative prend généralement entre 30 et 90 secondes.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Veo Error or Quota message */}
+                    {veoError && (
+                      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-1.5">
+                        <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                          <span>Information Veo :</span>
+                        </div>
+                        <p className="text-xs text-amber-800">{veoError}</p>
+                        <p className="text-[11px] text-amber-700">
+                          👉 Vous pouvez utiliser l'option <strong>Studio Export Vidéo Animée MP4</strong> ci-dessus qui fonctionne immédiatement et sans quotas !
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Rendered Veo Video */}
+                    {veoVideoUrl && (
+                      <div className="space-y-3 pt-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-indigo-900">Vidéo Veo 3.1 générée :</span>
+                          <a
+                            href={veoVideoUrl}
+                            download="Veo_Video_BusinessAI.mp4"
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Télécharger MP4
+                          </a>
+                        </div>
+                        <div className="flex justify-center bg-black rounded-2xl p-4">
+                          <video
+                            src={veoVideoUrl}
+                            controls
+                            className="max-h-[380px] rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

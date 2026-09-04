@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateVideosOperation } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -339,6 +339,231 @@ async function startServer() {
       res.write(`data: ${JSON.stringify({ error: "Erreur de streaming" })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
+    }
+  });
+
+  // Image Generation Endpoint with Gemini Image Models
+  app.post("/api/gemini/generate-image", async (req: Request, res: Response) => {
+    try {
+      const {
+        prompt,
+        aspectRatio = "1:1",
+        imageSize = "1K",
+        style = "photorealistic",
+      } = req.body;
+
+      if (!prompt || typeof prompt !== "string") {
+        return res.status(400).json({ error: "Le paramètre 'prompt' est requis." });
+      }
+
+      const ai = getGenAI();
+      if (!ai) {
+        return res.status(503).json({
+          error: "Clé API Gemini non configurée.",
+          requiresPaidKey: true,
+        });
+      }
+
+      // Valid aspect ratios supported by nano banana / flash-image models
+      const validRatios = ["1:1", "3:4", "4:3", "9:16", "16:9"];
+      const targetRatio = validRatios.includes(aspectRatio) ? aspectRatio : "1:1";
+      const styleSuffix = style ? `, in ${style} style, professional commercial visual, crisp focus, studio lighting, highly detailed` : "";
+      const fullPrompt = `${prompt.trim()}${styleSuffix}`;
+
+      let imageBase64: string | null = null;
+      let modelUsed = "gemini-3.1-flash-image";
+
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-image",
+          contents: {
+            parts: [{ text: fullPrompt }],
+          },
+          config: {
+            imageConfig: {
+              aspectRatio: targetRatio,
+              imageSize: imageSize || "1K",
+            },
+          },
+        });
+
+        if (response?.candidates?.[0]?.content?.parts) {
+          for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData?.data) {
+              imageBase64 = part.inlineData.data;
+              break;
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn("[Gemini Image] gemini-3.1-flash-image warning:", err?.message || err);
+
+        // Fallback to gemini-3.1-flash-lite-image
+        try {
+          const responseLite = await ai.models.generateContent({
+            model: "gemini-3.1-flash-lite-image",
+            contents: {
+              parts: [{ text: fullPrompt }],
+            },
+            config: {
+              imageConfig: {
+                aspectRatio: targetRatio,
+              },
+            },
+          });
+
+          if (responseLite?.candidates?.[0]?.content?.parts) {
+            for (const part of responseLite.candidates[0].content.parts) {
+              if (part.inlineData?.data) {
+                imageBase64 = part.inlineData.data;
+                modelUsed = "gemini-3.1-flash-lite-image";
+                break;
+              }
+            }
+          }
+        } catch (liteErr: any) {
+          console.warn("[Gemini Image Lite] error:", liteErr?.message || liteErr);
+          const isQuota = isHighDemandOrUnavailable(err) || isHighDemandOrUnavailable(liteErr) || err?.status === 429 || liteErr?.status === 429;
+          return res.status(isQuota ? 429 : 500).json({
+            error: isQuota
+              ? "Le modèle d'image IA nécessite une clé API facturée ou a atteint son quota de requêtes."
+              : "Erreur lors de la génération de l'image par le modèle Gemini.",
+            requiresPaidKey: true,
+            details: err?.message || liteErr?.message,
+          });
+        }
+      }
+
+      if (!imageBase64) {
+        return res.status(500).json({ error: "Aucun contenu image renvoyé par le modèle." });
+      }
+
+      const imageUrl = `data:image/png;base64,${imageBase64}`;
+      return res.json({
+        imageUrl,
+        modelUsed,
+        prompt,
+        aspectRatio: targetRatio,
+      });
+    } catch (error: any) {
+      console.error("Erreur serveur generate-image:", error);
+      return res.status(500).json({ error: error?.message || "Erreur interne" });
+    }
+  });
+
+  // Video Generation Endpoint with Veo
+  app.post("/api/gemini/generate-video", async (req: Request, res: Response) => {
+    try {
+      const { prompt, aspectRatio = "9:16", resolution = "720p" } = req.body;
+
+      if (!prompt || typeof prompt !== "string") {
+        return res.status(400).json({ error: "Le paramètre 'prompt' est requis." });
+      }
+
+      const ai = getGenAI();
+      if (!ai) {
+        return res.status(503).json({
+          error: "Clé API Gemini non disponible.",
+          requiresPaidKey: true,
+        });
+      }
+
+      const validRatio = aspectRatio === "16:9" ? "16:9" : "9:16";
+
+      const operation = await ai.models.generateVideos({
+        model: "veo-3.1-lite-generate-preview",
+        prompt: prompt.trim(),
+        config: {
+          numberOfVideos: 1,
+          resolution: resolution === "1080p" ? "1080p" : "720p",
+          aspectRatio: validRatio,
+        },
+      });
+
+      return res.json({
+        operationName: operation.name,
+        prompt,
+        aspectRatio: validRatio,
+      });
+    } catch (err: any) {
+      console.error("[Veo Video] Erreur de démarrage vidéo:", err?.message || err);
+      const isQuota = isHighDemandOrUnavailable(err) || err?.status === 429;
+      return res.status(isQuota ? 429 : 500).json({
+        error: isQuota
+          ? "Le modèle Veo nécessite une clé API facturée (Paid API Key)."
+          : (err?.message || "Erreur de génération vidéo Veo."),
+        requiresPaidKey: true,
+        details: err?.message,
+      });
+    }
+  });
+
+  // Video Status Polling Endpoint
+  app.post("/api/gemini/video-status", async (req: Request, res: Response) => {
+    try {
+      const { operationName } = req.body;
+      if (!operationName) {
+        return res.status(400).json({ error: "operationName est requis." });
+      }
+
+      const ai = getGenAI();
+      if (!ai) {
+        return res.status(503).json({ error: "Clé API non disponible." });
+      }
+
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+
+      return res.json({
+        done: Boolean(updated.done),
+        error: updated.error || null,
+        videoAvailable: Boolean(updated.response?.generatedVideos?.[0]?.video?.uri),
+      });
+    } catch (err: any) {
+      console.error("[Veo Status] Erreur polling:", err?.message || err);
+      return res.status(500).json({ error: err?.message || "Erreur lors de la vérification de statut" });
+    }
+  });
+
+  // Video Download / Streaming Endpoint
+  app.post("/api/gemini/video-download", async (req: Request, res: Response) => {
+    try {
+      const { operationName } = req.body;
+      if (!operationName) {
+        return res.status(400).json({ error: "operationName est requis." });
+      }
+
+      const ai = getGenAI();
+      if (!ai) {
+        return res.status(503).json({ error: "Clé API non disponible." });
+      }
+
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+
+      if (!uri) {
+        return res.status(404).json({ error: "Le fichier vidéo n'est pas encore prêt ou introuvable." });
+      }
+
+      const videoRes = await fetch(uri, {
+        headers: { "x-goog-api-key": process.env.GEMINI_API_KEY! },
+      });
+
+      if (!videoRes.ok) {
+        return res.status(videoRes.status).json({ error: "Impossible de récupérer le flux vidéo Veo." });
+      }
+
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Content-Disposition", 'inline; filename="video_businessai.mp4"');
+
+      const arrayBuf = await videoRes.arrayBuffer();
+      res.end(Buffer.from(arrayBuf));
+    } catch (err: any) {
+      console.error("[Veo Download] Erreur téléchargement:", err?.message || err);
+      return res.status(500).json({ error: err?.message || "Erreur de téléchargement" });
     }
   });
 

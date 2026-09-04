@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   MessageSquareText,
   Share2,
+  Image as ImageIcon,
   Video,
   Package,
   MessageCircleReply,
@@ -62,6 +63,14 @@ const NAV_ITEMS: NavItem[] = [
     badge: 'Multi-réseaux',
     icon: Share2,
     descriptionKey: 'Facebook, Insta, WhatsApp, Ads',
+  },
+  {
+    id: 'images',
+    labelKey: 'nav.images',
+    badge: 'Imagen 3',
+    icon: ImageIcon,
+    descriptionKey: 'Photos produits & affiches pro',
+    highlight: true,
   },
   {
     id: 'video',

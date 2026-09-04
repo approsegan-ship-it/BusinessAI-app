@@ -7,6 +7,7 @@ import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
 import { AIAssistant } from './components/AIAssistant';
 import { SocialGenerator } from './components/SocialGenerator';
+import { ImageGenerator } from './components/ImageGenerator';
 import { VideoGenerator } from './components/VideoGenerator';
 import { ProductCatalog } from './components/ProductCatalog';
 import { CustomerResponses } from './components/CustomerResponses';
@@ -77,6 +78,7 @@ const AppContent: React.FC = () => {
             {currentTab === 'dashboard' && <Dashboard />}
             {currentTab === 'assistant' && <AIAssistant />}
             {currentTab === 'social' && <SocialGenerator />}
+            {currentTab === 'images' && <ImageGenerator />}
             {currentTab === 'video' && <VideoGenerator />}
             {currentTab === 'products' && <ProductCatalog />}
             {currentTab === 'clients' && <CustomerResponses />}
