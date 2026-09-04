@@ -24,6 +24,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'nav.assistant': 'Assistant IA',
     'nav.social': 'Publications Réseaux',
     'nav.video': 'Générateur Vidéo',
+    'nav.invoices': 'Devis & Factures',
+    'nav.ai_calls': 'Appels Vocaux IA',
     'nav.products': 'Fiches Produits',
     'nav.clients': 'Réponses Clients',
     'nav.sales': 'Outils Vente & Marges',

@@ -1,6 +1,6 @@
 {
   "name": "BusinessAI",
-  "description": "Assistant IA intelligent pour petites et moyennes entreprises : marketing, publications, fiches produits, réponses clients, calculs de marge et profil d'entreprise.",
+  "description": "Assistant IA complet pour PME : devis & factures pro, appels vocaux IA avec voix humaine à la place de l'entrepreneur, marketing réseaux sociaux, vidéos TikTok/Reels, fiches produits et réponses clients.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

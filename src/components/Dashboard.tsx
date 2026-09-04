@@ -23,6 +23,8 @@ import {
   Rocket,
   CheckCircle2,
   Smartphone,
+  Receipt,
+  PhoneCall,
 } from 'lucide-react';
 import { AppTab } from '../types';
 
@@ -456,6 +458,52 @@ export const Dashboard: React.FC = () => {
             </p>
             <div className="flex items-center gap-1 text-xs font-semibold text-amber-800 mt-3">
               <span>Outils financiers</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* Action: Invoices & Quotes */}
+          <button
+            onClick={() => setCurrentTab('invoices')}
+            className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm text-left transition-all group cursor-pointer shadow-2xs relative overflow-hidden"
+          >
+            <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px]">
+              Essentiel
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-base group-hover:text-indigo-700 transition-colors">
+              Devis & Factures Pro
+            </h3>
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              Générez devis et factures conformes avec TVA, partage WhatsApp direct et export PDF imprimable.
+            </p>
+            <div className="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-3">
+              <span>Créer un devis / facture</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* Action: AI Voice Calls */}
+          <button
+            onClick={() => setCurrentTab('ai_calls')}
+            className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 hover:shadow-sm text-left transition-all group cursor-pointer shadow-2xs relative overflow-hidden"
+          >
+            <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">
+              Voix IA
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+              <PhoneCall className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-base group-hover:text-purple-700 transition-colors">
+              Appels Vocaux IA
+            </h3>
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              L'IA téléphone à vos clients à votre place pour vos relances de factures et confirmations de livraison.
+            </p>
+            <div className="flex items-center gap-1 text-xs font-semibold text-purple-700 mt-3">
+              <span>Lancer un appel IA</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>

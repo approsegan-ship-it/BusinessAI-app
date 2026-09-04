@@ -10,7 +10,23 @@ BusinessAI est une plateforme complète et moderne permettant aux commerçants, 
    - Suivi des crédits IA restants, état du forfait et raccourcis rapides.
    - Statistiques de conversion et aperçu des derniers contenus générés.
 
-2. **Générateur Vidéo & Storyboard TikTok / Reels (`src/components/VideoGenerator.tsx`)**
+2. **Générateur de Devis & Factures Pro (`src/components/InvoiceGenerator.tsx`)**
+   - Création de devis (proforma) et factures conformes en quelques clics.
+   - Génération assistée par l'IA des postes de facturation et conditions de paiement.
+   - Calcul automatique des sous-totaux, remises, TVA locale et montants nets.
+   - Coordonnées de paiement Mobile Money intégrées (Wave, Orange Money, MTN MoMo).
+   - Export et impression directe au format PDF haute fidélité (`window.print()`).
+   - Partage instantané du récapitulatif par lien WhatsApp direct.
+
+3. **Agent d'Appels Vocaux IA (`src/components/AICallingAgent.tsx`)**
+   - L'IA téléphone à vos clients avec une voix humaine à la place de l'entrepreneur.
+   - 4 voix IA personnalisées (Amélie, Thomas, Fatou, Jean) avec modulation de pitch et débit.
+   - Scénarios métier : Relance facture impayée, confirmation de commande, planification de livraison, suivi devis, satisfaction client.
+   - Synthèse vocale interactive (Web Speech API) avec dialogue tour par tour.
+   - Réponses suggérées interactives pour tester les objections clients en direct.
+   - Envoi automatique d'un message récapitulatif WhatsApp après chaque appel.
+
+4. **Générateur Vidéo & Storyboard TikTok / Reels (`src/components/VideoGenerator.tsx`)**
    - Scénarisation minutée (15s, 30s, 60s) en formats 9:16 vertical, 1:1 carré ou 16:9 paysage.
    - Accroches anti-scroll (Hooks), scripts voix-off mot à mot, instructions de cadrage smartphone.
    - Simulateur smartphone interactif avec lecture de voix-off par synthèse vocale (TTS).

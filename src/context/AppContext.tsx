@@ -14,8 +14,16 @@ import {
   InAppNotification,
   NotificationPreferences,
   OnboardingState,
+  InvoiceDocument,
+  AICallSession,
 } from '../types';
-import { DEFAULT_COMPANY, INITIAL_PRODUCTS, INITIAL_HISTORY } from '../utils/defaultData';
+import {
+  DEFAULT_COMPANY,
+  INITIAL_PRODUCTS,
+  INITIAL_HISTORY,
+  INITIAL_INVOICES,
+  INITIAL_CALL_SESSIONS,
+} from '../utils/defaultData';
 import {
   DEFAULT_BADGES,
   DEFAULT_REFERRAL_STATE,
@@ -52,6 +60,20 @@ interface AppContextType {
   addHistory: (item: Omit<HistoryItem, 'id' | 'createdAt'>) => HistoryItem;
   deleteHistory: (id: string) => void;
   clearHistory: () => void;
+
+  // Invoices & Quotes
+  invoices: InvoiceDocument[];
+  addInvoice: (inv: Omit<InvoiceDocument, 'id' | 'createdAt' | 'updatedAt'>) => InvoiceDocument;
+  updateInvoice: (id: string, inv: Partial<InvoiceDocument>) => void;
+  deleteInvoice: (id: string) => void;
+  duplicateInvoice: (id: string) => InvoiceDocument;
+  convertQuoteToInvoice: (quoteId: string) => InvoiceDocument | null;
+
+  // AI Voice Calls
+  callSessions: AICallSession[];
+  addCallSession: (session: Omit<AICallSession, 'id' | 'createdAt'>) => AICallSession;
+  updateCallSession: (id: string, session: Partial<AICallSession>) => void;
+  deleteCallSession: (id: string) => void;
   user: UserAccount;
   upgradePlan: (plan: UserPlan) => void;
   consumeCredit: (cost?: number) => boolean;
@@ -125,6 +147,8 @@ const STORAGE_KEYS = {
   COMPANY: 'businessai_company_v2',
   PRODUCTS: 'businessai_products_v2',
   HISTORY: 'businessai_history_v2',
+  INVOICES: 'businessai_invoices_v2',
+  CALL_SESSIONS: 'businessai_call_sessions_v2',
   USER: 'businessai_user_v2',
   BADGES: 'businessai_badges_v2',
   REFERRALS: 'businessai_referrals_v2',
@@ -240,6 +264,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return ensureUniqueIds(valid, 'hist');
     } catch {
       return ensureUniqueIds(INITIAL_HISTORY, 'hist');
+    }
+  });
+
+  // Persistent Invoices & Quotes
+  const [invoices, setInvoices] = useState<InvoiceDocument[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.INVOICES);
+      const parsed = saved ? JSON.parse(saved) : INITIAL_INVOICES;
+      const valid = Array.isArray(parsed) ? parsed : INITIAL_INVOICES;
+      return ensureUniqueIds(valid, 'inv');
+    } catch {
+      return ensureUniqueIds(INITIAL_INVOICES, 'inv');
+    }
+  });
+
+  // Persistent AI Voice Call Sessions
+  const [callSessions, setCallSessions] = useState<AICallSession[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CALL_SESSIONS);
+      const parsed = saved ? JSON.parse(saved) : INITIAL_CALL_SESSIONS;
+      const valid = Array.isArray(parsed) ? parsed : INITIAL_CALL_SESSIONS;
+      return ensureUniqueIds(valid, 'call');
+    } catch {
+      return ensureUniqueIds(INITIAL_CALL_SESSIONS, 'call');
     }
   });
 
@@ -380,6 +428,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('LocalStorage error on history save', e);
     }
   }, [history]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
+    } catch (e) {
+      console.warn('LocalStorage error on invoices save', e);
+    }
+  }, [invoices]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CALL_SESSIONS, JSON.stringify(callSessions));
+    } catch (e) {
+      console.warn('LocalStorage error on call sessions save', e);
+    }
+  }, [callSessions]);
 
   useEffect(() => {
     try {
@@ -544,6 +608,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearHistory = () => {
     setHistory([]);
     addToast('info', 'Historique réinitialisé', 'Toutes les entrées ont été effacées.');
+  };
+
+  const addInvoice = (invData: Omit<InvoiceDocument, 'id' | 'createdAt' | 'updatedAt'>): InvoiceDocument => {
+    const newInv: InvoiceDocument = {
+      ...invData,
+      id: generateUniqueId('inv'),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setInvoices((prev) => [newInv, ...prev]);
+    trackGrowthEvent('content_created');
+    unlockBadge('first_content');
+    addToast('success', `${newInv.type === 'quote' ? 'Devis' : 'Facture'} ${newInv.number} créé(e)`);
+    return newInv;
+  };
+
+  const updateInvoice = (id: string, updates: Partial<InvoiceDocument>) => {
+    setInvoices((prev) =>
+      prev.map((inv) =>
+        inv.id === id ? { ...inv, ...updates, updatedAt: new Date().toISOString() } : inv
+      )
+    );
+    addToast('info', 'Document mis à jour', 'Vos modifications ont été enregistrées.');
+  };
+
+  const deleteInvoice = (id: string) => {
+    setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+    addToast('info', 'Document supprimé', 'Le document a été retiré de votre liste.');
+  };
+
+  const duplicateInvoice = (id: string): InvoiceDocument => {
+    const original = invoices.find((i) => i.id === id);
+    if (!original) throw new Error('Document introuvable');
+    const prefix = original.type === 'quote' ? 'DEV' : 'FAC';
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const newDoc: InvoiceDocument = {
+      ...original,
+      id: generateUniqueId('inv'),
+      number: `${prefix}-${new Date().getFullYear()}-${randomSuffix}`,
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setInvoices((prev) => [newDoc, ...prev]);
+    addToast('success', 'Document dupliqué', `Nouveau document créé : ${newDoc.number}`);
+    return newDoc;
+  };
+
+  const convertQuoteToInvoice = (quoteId: string): InvoiceDocument | null => {
+    const quote = invoices.find((i) => i.id === quoteId);
+    if (!quote) return null;
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const newInvoice: InvoiceDocument = {
+      ...quote,
+      id: generateUniqueId('inv'),
+      type: 'invoice',
+      number: `FAC-${new Date().getFullYear()}-${randomSuffix}`,
+      status: 'pending',
+      notes: `Facture issue du devis n° ${quote.number}. ${quote.notes || ''}`.trim(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setInvoices((prev) => [newInvoice, ...prev]);
+    updateInvoice(quoteId, { status: 'accepted' });
+    addToast('success', 'Devis converti en facture !', `La facture ${newInvoice.number} est prête.`);
+    return newInvoice;
+  };
+
+  const addCallSession = (sessionData: Omit<AICallSession, 'id' | 'createdAt'>): AICallSession => {
+    const newSession: AICallSession = {
+      ...sessionData,
+      id: generateUniqueId('call'),
+      createdAt: new Date().toISOString(),
+    };
+    setCallSessions((prev) => [newSession, ...prev]);
+    trackGrowthEvent('content_created');
+    unlockBadge('first_content');
+    return newSession;
+  };
+
+  const updateCallSession = (id: string, updates: Partial<AICallSession>) => {
+    setCallSessions((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
+  };
+
+  const deleteCallSession = (id: string) => {
+    setCallSessions((prev) => prev.filter((c) => c.id !== id));
+    addToast('info', 'Session d’appel supprimée');
   };
 
   const upgradePlan = (newPlan: UserPlan) => {
@@ -833,6 +986,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addHistory,
         deleteHistory,
         clearHistory,
+
+        // Invoices & Quotes
+        invoices,
+        addInvoice,
+        updateInvoice,
+        deleteInvoice,
+        duplicateInvoice,
+        convertQuoteToInvoice,
+
+        // AI Voice Calls
+        callSessions,
+        addCallSession,
+        updateCallSession,
+        deleteCallSession,
+
         user,
         upgradePlan,
         consumeCredit,
@@ -910,4 +1078,6 @@ export const useApp = () => {
   }
   return context;
 };
+
+export const useAppContext = useApp;
 

@@ -11,6 +11,8 @@ import { VideoGenerator } from './components/VideoGenerator';
 import { ProductCatalog } from './components/ProductCatalog';
 import { CustomerResponses } from './components/CustomerResponses';
 import { SalesTools } from './components/SalesTools';
+import { InvoiceGenerator } from './components/InvoiceGenerator';
+import { AICallingAgent } from './components/AICallingAgent';
 import { HistoryView } from './components/HistoryView';
 import { CompanyProfileView } from './components/CompanyProfileView';
 import { PricingView } from './components/PricingView';
@@ -79,6 +81,8 @@ const AppContent: React.FC = () => {
             {currentTab === 'products' && <ProductCatalog />}
             {currentTab === 'clients' && <CustomerResponses />}
             {currentTab === 'sales' && <SalesTools />}
+            {currentTab === 'invoices' && <InvoiceGenerator />}
+            {currentTab === 'ai_calls' && <AICallingAgent />}
             {currentTab === 'referrals' && <ReferralView />}
             {currentTab === 'earn_credits' && <EarnCreditsView />}
             {currentTab === 'history' && <HistoryView />}

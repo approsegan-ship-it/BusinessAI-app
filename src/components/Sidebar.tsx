@@ -18,6 +18,8 @@ import {
   Zap,
   Smartphone,
   Phone,
+  Receipt,
+  PhoneCall,
 } from 'lucide-react';
 import { OFFICIAL_PAYMENT_NUMBER } from './PaymentInstructionModal';
 
@@ -87,6 +89,22 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: 'nav.sales',
     icon: TrendingUp,
     descriptionKey: 'Calculateur marge & promotions',
+  },
+  {
+    id: 'invoices',
+    labelKey: 'nav.invoices',
+    badge: 'Proforma & Factures',
+    icon: Receipt,
+    descriptionKey: 'Générateur de devis & factures',
+    highlight: true,
+  },
+  {
+    id: 'ai_calls',
+    labelKey: 'nav.ai_calls',
+    badge: 'Voix IA',
+    icon: PhoneCall,
+    descriptionKey: 'L’IA téléphone à votre place',
+    highlight: true,
   },
   {
     id: 'referrals',

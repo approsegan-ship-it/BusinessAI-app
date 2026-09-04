@@ -1,4 +1,4 @@
-import { CompanyProfile, SavedProduct, HistoryItem } from '../types';
+import { CompanyProfile, SavedProduct, HistoryItem, InvoiceDocument, VoicePersona, AICallSession } from '../types';
 
 export const DEFAULT_COMPANY: CompanyProfile = {
   name: 'Boutique Éclat & Style',
@@ -139,3 +139,209 @@ export const INITIAL_HISTORY: HistoryItem[] = [
     createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
   },
 ];
+
+export const INITIAL_INVOICES: InvoiceDocument[] = [
+  {
+    id: 'inv-1',
+    type: 'invoice',
+    number: 'FAC-2026-001',
+    date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 86400000 * 5).toISOString().slice(0, 10),
+    clientName: 'Aïssatou Traoré',
+    clientCompany: 'Cabinet Conseil Horizon',
+    clientPhone: '+221 77 555 44 33',
+    clientEmail: 'aissatou.traore@horizon-conseil.sn',
+    clientAddress: 'Plateau, Immeuble Horizon, Dakar',
+    items: [
+      {
+        id: 'item-1',
+        description: 'Veste Blazer Tailleur Cintrée (Taille M, Bleu Nuit)',
+        quantity: 2,
+        unitPrice: 45000,
+        taxRate: 0,
+        total: 90000,
+      },
+      {
+        id: 'item-2',
+        description: 'Sac à Main Cuir Minimaliste (Coloris Camel)',
+        quantity: 1,
+        unitPrice: 65000,
+        taxRate: 0,
+        total: 65000,
+      },
+      {
+        id: 'item-3',
+        description: 'Frais de livraison express à domicile (Dakar Plateau)',
+        quantity: 1,
+        unitPrice: 3000,
+        taxRate: 0,
+        total: 3000,
+      },
+    ],
+    discountType: 'fixed',
+    discountValue: 5000,
+    taxRate: 0,
+    status: 'pending',
+    notes: 'Merci pour votre confiance ! Merci d’indiquer le numéro de facture FAC-2026-001 lors de votre virement ou transfert Mobile Money.',
+    paymentTerms: 'Paiement à réception par Wave, Orange Money ou virement bancaire.',
+    paymentDetails: {
+      mobileMoneyNumber: '+221 77 123 45 67',
+      mobileMoneyProvider: 'Wave / Orange Money',
+      bankName: 'CBAO Attijariwafa Bank',
+      ibanOrRib: 'SN012 01001 12345678901 45',
+    },
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    id: 'inv-2',
+    type: 'quote',
+    number: 'DEV-2026-004',
+    date: new Date().toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 86400000 * 14).toISOString().slice(0, 10),
+    clientName: 'Mamadou Diallo',
+    clientCompany: 'Hôtel Les Almadies Resort',
+    clientPhone: '+221 76 987 11 22',
+    clientEmail: 'achats@lesalmadies.sn',
+    clientAddress: 'Route des Almadies, Dakar',
+    items: [
+      {
+        id: 'item-10',
+        description: 'Tenues professionnelles de réception avec broderie logo sur mesure',
+        quantity: 6,
+        unitPrice: 35000,
+        taxRate: 18,
+        total: 210000,
+      },
+      {
+        id: 'item-11',
+        description: 'Foulards en soie coordonnés aux couleurs de l’établissement',
+        quantity: 6,
+        unitPrice: 8500,
+        taxRate: 18,
+        total: 51000,
+      },
+      {
+        id: 'item-12',
+        description: 'Étalonnage, essayages sur place et retouches sur mesure incluses',
+        quantity: 1,
+        unitPrice: 25000,
+        taxRate: 18,
+        total: 25000,
+      },
+    ],
+    discountType: 'percent',
+    discountValue: 5,
+    taxRate: 18,
+    status: 'sent',
+    notes: 'Devis valable 14 jours ouvrés. Acompte de 50% à la validation de la commande, solde à la livraison.',
+    paymentTerms: '50% d’acompte à la signature, solde sous 15 jours après livraison.',
+    paymentDetails: {
+      mobileMoneyNumber: '+221 77 123 45 67',
+      mobileMoneyProvider: 'Wave / Orange Money',
+      bankName: 'Société Générale Sénégal',
+      ibanOrRib: 'SN053 01002 98765432109 88',
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+export const VOICE_PERSONAS: VoicePersona[] = [
+  {
+    id: 'amina',
+    name: 'Amina',
+    role: 'Relation Client & Suivi Commandes',
+    gender: 'female',
+    accentDesc: 'Voix féminine chaleureuse, posée, bienveillante et très polie',
+    pitch: 1.1,
+    rate: 1.0,
+    avatarColor: 'from-pink-500 to-rose-600',
+    sampleGreeting: 'Bonjour ! C’est Amina, votre conseillère dédiée chez notre entreprise. J’espère que vous passez une excellente journée !',
+  },
+  {
+    id: 'koffi',
+    name: 'Koffi',
+    role: 'Conseiller Commercial & Devis',
+    gender: 'male',
+    accentDesc: 'Voix masculine posée, diplomate, rassurante et engageante',
+    pitch: 0.95,
+    rate: 0.98,
+    avatarColor: 'from-indigo-600 to-blue-700',
+    sampleGreeting: 'Bonjour, ici Koffi du service commercial. Je vous contacte très brièvement pour faire le point sur votre proposition et répondre à vos questions.',
+  },
+  {
+    id: 'fatou',
+    name: 'Fatou',
+    role: 'Expéditions & Enquêtes Satisfaction',
+    gender: 'female',
+    accentDesc: 'Voix féminine dynamique, souriante, enthousiaste et réactive',
+    pitch: 1.15,
+    rate: 1.05,
+    avatarColor: 'from-amber-500 to-orange-600',
+    sampleGreeting: 'Allô bonjour ! C’est Fatou de l’équipe de livraison. Je vous appelle pour vous confirmer la bonne préparation de votre colis !',
+  },
+  {
+    id: 'jean',
+    name: 'Jean',
+    role: 'Comptabilité & Recouvrement Amiable',
+    gender: 'male',
+    accentDesc: 'Voix masculine claire, respectueuse, ferme et professionnelle',
+    pitch: 0.9,
+    rate: 0.95,
+    avatarColor: 'from-slate-700 to-slate-900',
+    sampleGreeting: 'Bonjour, Jean du service comptabilité et facturation. Je vous appelle en toute courtoisie au sujet du règlement de votre dernière facture.',
+  },
+];
+
+export const INITIAL_CALL_SESSIONS: AICallSession[] = [
+  {
+    id: 'call-1',
+    contactName: 'Aïssatou Traoré',
+    contactPhone: '+221 77 555 44 33',
+    contactCompany: 'Cabinet Conseil Horizon',
+    scenario: 'payment_reminder',
+    voicePersonaId: 'jean',
+    documentRef: 'FAC-2026-001',
+    amountDue: 153000,
+    objective: 'Relance courtoise de la facture FAC-2026-001 de 153 000 FCFA avec proposition de paiement Wave ou virement.',
+    turns: [
+      {
+        speaker: 'ai',
+        text: 'Bonjour Madame Aïssatou Traoré ! C’est Jean, l’assistant comptable de Boutique Éclat & Style. J’espère que vous allez très bien ?',
+        suggestedCustomerReplies: ['Bonjour Jean, oui très bien merci.', 'Oui, qui est à l’appareil ?', 'Bonjour, de quoi s’agit-il ?'],
+      },
+      {
+        speaker: 'customer',
+        text: 'Bonjour Jean, oui très bien merci !',
+      },
+      {
+        speaker: 'ai',
+        text: 'Je vous contacte en toute courtoisie concernant la facture FAC-2026-001 de 153 000 FCFA pour votre ensemble blazer et sac cuir livrés la semaine passée. Le délai arrive bientôt à échéance.',
+        suggestedCustomerReplies: ['Oui j’ai bien reçu, je règle par Wave aujourd’hui.', 'Pouvez-vous me renvoyer la facture sur WhatsApp ?', 'J’ai déjà fait le virement ce matin.'],
+      },
+      {
+        speaker: 'customer',
+        text: 'Oui j’ai bien reçu la facture, je prévois de régler par Wave aujourd’hui même.',
+      },
+      {
+        speaker: 'ai',
+        text: 'C’est parfait, merci beaucoup pour votre réactivité ! Je vous renvoie immédiatement notre numéro Wave officiel par message WhatsApp pour vous faciliter l’opération. Excellente fin de journée à vous !',
+        suggestedCustomerReplies: ['Merci beaucoup, bonne journée !', 'D’accord, j’attends votre message.'],
+      },
+    ],
+    fullScript: `[Assistant IA - Jean] : Bonjour Madame Aïssatou Traoré ! C’est Jean, l’assistant comptable de Boutique Éclat & Style. J’espère que vous allez très bien ?
+[Cliente] : Bonjour Jean, oui très bien merci !
+[Assistant IA - Jean] : Je vous contacte en toute courtoisie concernant la facture FAC-2026-001 de 153 000 FCFA. Le délai arrive bientôt à échéance. Souhaitez-vous régler par Wave ou par virement bancaire ?
+[Cliente] : Oui j’ai bien reçu, je règle par Wave aujourd’hui même.
+[Assistant IA - Jean] : C’est parfait, merci beaucoup pour votre réactivité ! Je vous renvoie immédiatement notre numéro Wave officiel par message WhatsApp. Excellente journée à vous !`,
+    whatsappFollowUpMessage: `Bonjour Madame Aïssatou Traoré, suite à notre échange téléphonique avec notre assistant vocal, voici le récapitulatif pour le règlement de votre facture FAC-2026-001 d’un montant de 153 000 FCFA :
+💳 Numéro Wave officiel : +221 77 123 45 67
+Merci pour votre fidélité et excellente journée ! Boutique Éclat & Style`,
+    status: 'completed',
+    durationSeconds: 42,
+    notes: 'Cliente agréable. Confirmation de règlement par Wave aujourd’hui.',
+    createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+  },
+];
+

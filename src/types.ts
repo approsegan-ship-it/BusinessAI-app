@@ -4,6 +4,8 @@ export type AppTab =
   | 'assistant'
   | 'social'
   | 'video'
+  | 'invoices'
+  | 'ai_calls'
   | 'products'
   | 'clients'
   | 'sales'
@@ -182,6 +184,8 @@ export type HistoryCategory =
   | 'chat'
   | 'social'
   | 'video'
+  | 'invoice'
+  | 'ai_call'
   | 'product'
   | 'client_reply'
   | 'sales_tool'
@@ -275,4 +279,106 @@ export interface ToastMessage {
   title: string;
   description?: string;
 }
+
+// ==========================================
+// DEVIS & FACTURES (Quotes & Invoices)
+// ==========================================
+export type InvoiceType = 'quote' | 'invoice'; // 'quote' = Devis / Proforma, 'invoice' = Facture
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'accepted' | 'cancelled' | 'pending';
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number; // e.g. 0 or 18%
+  total: number;
+}
+
+export interface InvoiceDocument {
+  id: string;
+  type: InvoiceType;
+  number: string; // e.g. DEV-2026-001 or FAC-2026-001
+  date: string;
+  dueDate: string;
+  clientName: string;
+  clientCompany?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  clientAddress?: string;
+  items: InvoiceItem[];
+  discountType?: 'percent' | 'fixed';
+  discountValue?: number;
+  taxRate?: number; // Global tax rate
+  notes?: string;
+  paymentTerms?: string;
+  paymentDetails?: {
+    mobileMoneyNumber?: string;
+    mobileMoneyProvider?: string; // Wave, Orange Money, MTN MoMo, Moov
+    bankName?: string;
+    ibanOrRib?: string;
+  };
+  status: InvoiceStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// APPELS VOCAUX IA (AI Calling Agent)
+// ==========================================
+export type CallScenario =
+  | 'payment_reminder'       // Relance facture impayée ou devis en attente
+  | 'order_confirmation'     // Confirmation de commande & créneau de livraison
+  | 'quote_followup'        // Relance de devis & proposition commerciale
+  | 'delivery_scheduling'   // Planification de livraison coursier
+  | 'customer_satisfaction' // Enquête de satisfaction & avis client
+  | 'vip_offer'             // Offre promotionnelle personnalisée VIP
+  | 'appointment_reminder'  // Rappel de rendez-vous
+  | 'custom';               // Objectif sur mesure
+
+export type CallTone =
+  | 'friendly_warm'         // Chaleureux, bienveillant & accueillant
+  | 'professional_firm'     // Professionnel, courtois mais ferme (recouvrement)
+  | 'dynamic_sales'         // Dynamique, enthousiaste & vendeur
+  | 'polite_respectful';    // Très poli, respectueux et posé
+
+export interface VoicePersona {
+  id: string;
+  name: string;
+  role: string;
+  gender: 'female' | 'male';
+  accentDesc: string;
+  pitch: number;
+  rate: number;
+  avatarColor: string;
+  sampleGreeting: string;
+}
+
+export interface CallTurn {
+  speaker: 'ai' | 'customer';
+  text: string;
+  suggestedCustomerReplies?: string[];
+  timestamp?: string;
+}
+
+export interface AICallSession {
+  id: string;
+  contactName: string;
+  contactPhone: string;
+  contactCompany?: string;
+  scenario: CallScenario;
+  voicePersonaId: string;
+  documentRef?: string; // Lié à un Devis ou une Facture
+  amountDue?: number;
+  objective: string;
+  customDetails?: string;
+  turns: CallTurn[];
+  fullScript: string;
+  whatsappFollowUpMessage: string;
+  status: 'ready' | 'in_progress' | 'completed' | 'unanswered' | 'transferred';
+  durationSeconds: number;
+  notes?: string;
+  createdAt: string;
+}
+
 

@@ -1,4 +1,11 @@
-import { CompanyProfile } from '../types';
+import {
+  CompanyProfile,
+  InvoiceItem,
+  InvoiceType,
+  CallScenario,
+  VoicePersona,
+  CallTurn,
+} from '../types';
 
 export function buildCompanySystemContext(company: CompanyProfile): string {
   return `Tu es BusinessAI, la plateforme et assistant IA d'élite en stratégie commerciale, marketing et communication d'entreprise.
@@ -481,4 +488,337 @@ function createIntelligentVideoFallback(params: {
     srtSubtitles: buildDefaultSrt(scenes),
   };
 }
+
+// ==========================================
+// 1. GENERATEUR DE DEVIS & FACTURES IA
+// ==========================================
+export interface GenerateInvoiceAIParams {
+  type: InvoiceType;
+  clientName: string;
+  clientCompany?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  descriptionOrNeeds: string;
+  company: CompanyProfile;
+  taxRate?: number;
+}
+
+export async function generateInvoiceWithAI(
+  params: GenerateInvoiceAIParams
+): Promise<{
+  items: Omit<InvoiceItem, 'id'>[];
+  notes: string;
+  paymentTerms: string;
+  discountType?: 'percent' | 'fixed';
+  discountValue?: number;
+  isFallback: boolean;
+}> {
+  const { type, clientName, clientCompany, descriptionOrNeeds, company, taxRate = 0 } = params;
+  const docTypeName = type === 'quote' ? 'Devis commercial' : 'Facture client';
+
+  const prompt = `Génère un découpage détaillé et réaliste des prestations ou produits pour un(e) ${docTypeName} d'entreprise.
+
+Contexte :
+- Entreprise émettrice : "${company.name || 'Notre Entreprise'}" (${company.sector})
+- Devise tarifaire : ${company.currency || 'FCFA'}
+- Client destinataire : "${clientName}" ${clientCompany ? `(${clientCompany})` : ''}
+- Description du besoin / Commande : "${descriptionOrNeeds}"
+- Taux de TVA indicatif : ${taxRate}%
+
+Consignes :
+1. Décompose la demande en 2 à 5 lignes de prestations ou produits clairs, précis et professionnels.
+2. Définis des quantités cohérentes et des prix unitaires réalistes en ${company.currency || 'FCFA'}.
+3. Propose des conditions de règlement (ex: Acompte 50% ou paiement sous 15 jours par Mobile Money / Virement) adaptées au marché.
+4. Rédige des notes professionnelles et cordiales remerciant le client et précisant la validité (pour un devis) ou les modalités (pour une facture).
+
+Renvoie UNIQUEMENT un JSON valide respectant ce format :
+{
+  "items": [
+    {
+      "description": "Désignation détaillée et professionnelle de la ligne",
+      "quantity": 1,
+      "unitPrice": 50000,
+      "taxRate": ${taxRate},
+      "total": 50000
+    }
+  ],
+  "notes": "Remerciement chaleureux et mentions utiles pour le client.",
+  "paymentTerms": "Conditions de règlement claires (ex: 50% à la commande, solde à la livraison par Wave / Orange Money).",
+  "discountType": "percent",
+  "discountValue": 0
+}`;
+
+  try {
+    const rawResult = await generateAIContent(prompt, company, 0.5);
+    let cleaned = rawResult.text.trim();
+    if (cleaned.includes('```json')) {
+      cleaned = cleaned.split('```json')[1].split('```')[0].trim();
+    } else if (cleaned.includes('```')) {
+      cleaned = cleaned.split('```')[1].split('```')[0].trim();
+    }
+    const parsed = JSON.parse(cleaned);
+
+    const formattedItems = (parsed.items || []).map((it: any) => {
+      const q = Number(it.quantity) || 1;
+      const up = Number(it.unitPrice) || 10000;
+      return {
+        description: String(it.description || 'Prestation professionnelle'),
+        quantity: q,
+        unitPrice: up,
+        taxRate: typeof it.taxRate === 'number' ? it.taxRate : taxRate,
+        total: q * up,
+      };
+    });
+
+    return {
+      items: formattedItems.length > 0 ? formattedItems : createFallbackInvoiceItems(descriptionOrNeeds, taxRate),
+      notes: parsed.notes || `Merci pour votre confiance. ${company.name || 'Notre équipe'} reste à votre entière disposition.`,
+      paymentTerms: parsed.paymentTerms || 'Paiement à réception par Wave, Orange Money ou virement bancaire.',
+      discountType: parsed.discountType === 'fixed' ? 'fixed' : 'percent',
+      discountValue: typeof parsed.discountValue === 'number' ? parsed.discountValue : 0,
+      isFallback: rawResult.isFallback,
+    };
+  } catch (error) {
+    console.error('Erreur génération facture IA:', error);
+    return {
+      items: createFallbackInvoiceItems(descriptionOrNeeds, taxRate),
+      notes: `Merci pour votre confiance. ${company.name || 'Notre équipe'} reste à votre entière disposition pour toute question.`,
+      paymentTerms: 'Paiement sous 15 jours par Mobile Money (Wave, Orange Money) ou virement bancaire.',
+      discountType: 'percent',
+      discountValue: 0,
+      isFallback: true,
+    };
+  }
+}
+
+function createFallbackInvoiceItems(description: string, taxRate: number): Omit<InvoiceItem, 'id'>[] {
+  return [
+    {
+      description: description || 'Prestation principale sur mesure',
+      quantity: 1,
+      unitPrice: 35000,
+      taxRate: taxRate,
+      total: 35000,
+    },
+    {
+      description: 'Frais de gestion & livraison express',
+      quantity: 1,
+      unitPrice: 5000,
+      taxRate: taxRate,
+      total: 5000,
+    },
+  ];
+}
+
+// ==========================================
+// 2. GENERATEUR D'APPEL VOCAL IA (CALLING AGENT)
+// ==========================================
+export interface GenerateAICallScriptParams {
+  scenario: CallScenario;
+  contactName: string;
+  contactPhone: string;
+  contactCompany?: string;
+  amountDue?: number;
+  documentRef?: string;
+  voicePersona: VoicePersona;
+  customDetails?: string;
+  company: CompanyProfile;
+}
+
+const SCENARIO_DESCRIPTIONS: Record<CallScenario, string> = {
+  payment_reminder: 'Relance de facture impayée ou règlement en attente avec proposition amiable de paiement',
+  order_confirmation: 'Confirmation d’une commande passée et validation de l’adresse & créneau de livraison',
+  quote_followup: 'Suivi courtois suite à un devis envoyé pour répondre aux questions et encourager la signature',
+  delivery_scheduling: 'Coordination de la livraison coursier avec créneau horaire précis et mode de paiement',
+  customer_satisfaction: 'Enquête de satisfaction après-vente pour vérifier la conformité et recueillir l’avis',
+  vip_offer: 'Appel personnalisé pour annoncer une offre promotionnelle exclusive réservée aux meilleurs clients',
+  appointment_reminder: 'Rappel de rendez-vous ou de séance avec confirmation de présence',
+  custom: 'Appel professionnel sur mesure selon les indications de l’entrepreneur',
+};
+
+export async function generateAICallScript(
+  params: GenerateAICallScriptParams
+): Promise<{
+  objective: string;
+  turns: CallTurn[];
+  fullScript: string;
+  whatsappFollowUpMessage: string;
+  isFallback: boolean;
+}> {
+  const {
+    scenario,
+    contactName,
+    contactPhone,
+    contactCompany,
+    amountDue,
+    documentRef,
+    voicePersona,
+    customDetails,
+    company,
+  } = params;
+
+  const prompt = `Tu es le concepteur d'un agent téléphonique IA vocal professionnel qui appelle les clients à la place de l'entrepreneur.
+
+Rôle de la voix IA :
+- Nom de la voix : "${voicePersona.name}" (${voicePersona.gender === 'female' ? 'Assistante vocale' : 'Assistant vocal'})
+- Style vocal : ${voicePersona.accentDesc}
+- Entreprise qui mandate l'appel : "${company.name || 'Notre Entreprise'}" (${company.sector})
+- Contact de l'entreprise : WhatsApp ${company.whatsapp || company.phone || 'Non renseigné'}
+- Devise : ${company.currency || 'FCFA'}
+
+Détails de l'appelant client :
+- Destinataire : "${contactName}" ${contactCompany ? `(${contactCompany})` : ''}
+- Téléphone : "${contactPhone}"
+- Scénario d'appel : ${SCENARIO_DESCRIPTIONS[scenario]}
+${documentRef ? `- Référence dossier/document : ${documentRef}` : ''}
+${amountDue ? `- Montant concerné : ${amountDue} ${company.currency || 'FCFA'}` : ''}
+${customDetails ? `- Consignes spécifiques : "${customDetails}"` : ''}
+
+Consignes d'écriture pour l'appel :
+1. La voix IA se présente immédiatement avec courtoisie, cite "${voicePersona.name}, assistant vocal chez ${company.name || 'notre entreprise'}" et demande gentiment si le client est disponible 1 minute.
+2. Le ton doit être naturel, chaleureux, très respectueux et parfaitement fluide à l'oral (phrases courtes adaptées à la synthèse vocale).
+3. Prévois une conversation interactive en 3 à 5 échanges (tours de parole) :
+   - Salutation & accord de disponibilité
+   - Exposition du motif avec les données précises (montant, référence, commande)
+   - Prise en compte de la réponse client et proposition de solution
+   - Conclusion positive & confirmation d'envoi d'un récapitulatif WhatsApp.
+4. Pour chaque prise de parole de l'IA, fournis 2 à 3 réponses types que le client est susceptible de prononcer (pour que l'utilisateur puisse tester le dialogue).
+5. Fournis également un message WhatsApp court et courtois de confirmation post-appel.
+
+Renvoie UNIQUEMENT un objet JSON valide :
+{
+  "objective": "Objectif clair et précis de cet appel vocal en 1 phrase",
+  "turns": [
+    {
+      "speaker": "ai",
+      "text": "Texte oral fluide prononcé par l'IA",
+      "suggestedCustomerReplies": ["Option client 1", "Option client 2", "Option client 3"]
+    },
+    {
+      "speaker": "customer",
+      "text": "Réponse client la plus probable"
+    }
+  ],
+  "fullScript": "Transcription complète sous forme de dialogue théâtral prêt à être lu",
+  "whatsappFollowUpMessage": "Message WhatsApp de confirmation envoyé après l'appel"
+}`;
+
+  try {
+    const rawResult = await generateAIContent(prompt, company, 0.7);
+    let cleaned = rawResult.text.trim();
+    if (cleaned.includes('```json')) {
+      cleaned = cleaned.split('```json')[1].split('```')[0].trim();
+    } else if (cleaned.includes('```')) {
+      cleaned = cleaned.split('```')[1].split('```')[0].trim();
+    }
+    const parsed = JSON.parse(cleaned);
+
+    return {
+      objective: parsed.objective || SCENARIO_DESCRIPTIONS[scenario],
+      turns: Array.isArray(parsed.turns) && parsed.turns.length > 0 ? parsed.turns : createFallbackCallTurns(params),
+      fullScript: parsed.fullScript || parsed.turns?.map((t: any) => `[${t.speaker === 'ai' ? voicePersona.name : 'Client'}] : ${t.text}`).join('\n') || '',
+      whatsappFollowUpMessage: parsed.whatsappFollowUpMessage || `Bonjour ${contactName}, suite à l'appel de notre assistant vocal chez ${company.name}, nous vous confirmons notre échange. Restant à votre écoute !`,
+      isFallback: rawResult.isFallback,
+    };
+  } catch (error) {
+    console.error('Erreur génération appel IA:', error);
+    const fallbackTurns = createFallbackCallTurns(params);
+    return {
+      objective: SCENARIO_DESCRIPTIONS[scenario],
+      turns: fallbackTurns,
+      fullScript: fallbackTurns.map((t) => `[${t.speaker === 'ai' ? voicePersona.name : 'Client'}] : ${t.text}`).join('\n'),
+      whatsappFollowUpMessage: `Bonjour ${contactName}, suite à l'appel téléphonique de notre assistant vocal chez ${company.name || 'notre équipe'}, nous restons à votre entière disposition sur WhatsApp au ${company.whatsapp || company.phone || ''} pour toute question. Merci pour votre fidélité !`,
+      isFallback: true,
+    };
+  }
+}
+
+function createFallbackCallTurns(params: GenerateAICallScriptParams): CallTurn[] {
+  const { scenario, contactName, amountDue, documentRef, voicePersona, company } = params;
+  const currency = company.currency || 'FCFA';
+
+  if (scenario === 'payment_reminder') {
+    return [
+      {
+        speaker: 'ai',
+        text: `Bonjour ${contactName} ! C’est ${voicePersona.name}, l’assistant vocal de ${company.name || 'notre entreprise'}. J’espère que vous passez une excellente journée ?`,
+        suggestedCustomerReplies: ['Bonjour, oui très bien merci.', 'Oui, de quoi s’agit-il ?', 'Bonjour, qui est à l’appareil ?'],
+      },
+      {
+        speaker: 'customer',
+        text: 'Bonjour, oui très bien merci !',
+      },
+      {
+        speaker: 'ai',
+        text: `Je vous appelle en toute courtoisie au sujet de la facture ${documentRef || 'en cours'} d’un montant de ${amountDue ? amountDue.toLocaleString() + ' ' + currency : 'votre commande'}. Souhaitez-vous régler par Wave, Orange Money ou virement ?`,
+        suggestedCustomerReplies: ['Je règle par Wave aujourd’hui même.', 'Pouvez-vous me renvoyer le lien sur WhatsApp ?', 'J’ai déjà fait le virement ce matin.'],
+      },
+      {
+        speaker: 'customer',
+        text: 'C’est noté, je prévois de faire le paiement par Mobile Money aujourd’hui.',
+      },
+      {
+        speaker: 'ai',
+        text: `C’est parfait, merci infiniment pour votre réactivité ! Je vous renvoie immédiatement un message récapitulatif par WhatsApp avec nos coordonnées pour vous faciliter la démarche. Excellente journée à vous !`,
+        suggestedCustomerReplies: ['Merci beaucoup, à bientôt.', 'Parfait, j’attends votre message.'],
+      },
+    ];
+  }
+
+  if (scenario === 'order_confirmation') {
+    return [
+      {
+        speaker: 'ai',
+        text: `Allô bonjour ${contactName} ! C’est ${voicePersona.name} du service commande chez ${company.name || 'notre boutique'}. Avez-vous 30 secondes pour valider votre livraison ?`,
+        suggestedCustomerReplies: ['Oui bonjour, je vous écoute !', 'Oui ma commande est bien confirmée.', 'Pouvez-vous me rappeler dans 10 minutes ?'],
+      },
+      {
+        speaker: 'customer',
+        text: 'Oui bonjour, je vous écoute avec plaisir !',
+      },
+      {
+        speaker: 'ai',
+        text: `Votre colis est prêt pour expédition ! Pouvez-vous me confirmer que vous serez bien disponible à votre adresse aujourd’hui pour réceptionner le livreur ?`,
+        suggestedCustomerReplies: ['Oui je suis disponible toute la journée.', 'Plutôt cet après-midi à partir de 14h.', 'Pouvez-vous déposer chez mon voisin si absent ?'],
+      },
+      {
+        speaker: 'customer',
+        text: 'Oui tout à fait, je serai bien disponible cet après-midi.',
+      },
+      {
+        speaker: 'ai',
+        text: `Merveilleux ! Le coursier prendra contact avec vous dès son arrivée. Je vous envoie le récapitulatif et le contact du livreur sur WhatsApp dès maintenant. Merci et bonne journée !`,
+        suggestedCustomerReplies: ['Merci beaucoup !', 'Parfait, merci !'],
+      },
+    ];
+  }
+
+  // General fallback
+  return [
+    {
+      speaker: 'ai',
+      text: `Bonjour ${contactName} ! C’est ${voicePersona.name}, l’assistant de ${company.name || 'notre entreprise'}. Je vous contacte très brièvement pour faire le point avec vous.`,
+      suggestedCustomerReplies: ['Bonjour, je vous écoute.', 'De quoi s’agit-il exactement ?', 'Rappelez-moi plus tard svp.'],
+    },
+    {
+      speaker: 'customer',
+      text: 'Bonjour, oui je vous écoute.',
+    },
+    {
+      speaker: 'ai',
+      text: `Nous tenions à nous assurer que tout se passe pour le mieux concernant vos commandes et voir si vous avez la moindre question. Comment pouvons-nous vous aider aujourd’hui ?`,
+      suggestedCustomerReplies: ['Tout est parfait, merci !', 'J’ai une question sur ma commande.', 'Pouvez-vous me renvoyer vos tarifs ?'],
+    },
+    {
+      speaker: 'customer',
+      text: 'Tout est en ordre pour moi, merci pour votre appel attentionné !',
+    },
+    {
+      speaker: 'ai',
+      text: `C’est un réel plaisir de vous servir ! Je reste joignable par WhatsApp si besoin. Très bonne journée à vous !`,
+      suggestedCustomerReplies: ['Merci, au revoir !', 'Bonne journée à vous aussi !'],
+    },
+  ];
+}
+
 
