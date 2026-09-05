@@ -9,6 +9,9 @@ import {
   Gift,
   ChevronDown,
   Phone,
+  ShieldCheck,
+  Lock,
+  Code2,
 } from 'lucide-react';
 import { NotificationCenter } from './NotificationCenter';
 import { SUPPORTED_LANGUAGES } from '../i18n/translations';
@@ -29,6 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     user,
     setIsAuthModalOpen,
     openPaymentModal,
+    openReceiptModal,
+    openCodeHubModal,
     language,
     setLanguage,
     displayCurrency,
@@ -193,45 +198,68 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Plan & Quota Pill */}
-            <button
-              onClick={() => openPaymentModal(user.plan === 'free' ? 'starter' : (user.plan as any))}
-              title="Abonnement et paiement direct"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
-                user.plan === 'starter'
-                  ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-900'
-                  : user.plan === 'business'
-                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900'
-                  : user.plan === 'pro'
-                  ? 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-900'
-                  : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900 ring-1 ring-amber-300/30'
-              }`}
-            >
-              <Crown
-                className={`w-3.5 h-3.5 ${
+            {/* Plan & Quota Pill with Price Lock & Verified Purchase Badge */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => openCodeHubModal()}
+                title="Consulter et copier tous les codes sources de BusinessAI 2.0"
+                className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 border border-slate-700"
+              >
+                <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Codes 2.0</span>
+              </button>
+
+              <button
+                onClick={() => openReceiptModal()}
+                title="Achat vérifié & Tarif bloqué à vie - Cliquez pour voir le reçu officiel"
+                className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Achat Validé</span>
+                <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-200/70 text-emerald-800 font-extrabold flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5" /> Prix Bloqué
+                </span>
+              </button>
+
+              <button
+                onClick={() => openPaymentModal(user.plan === 'free' ? 'starter' : (user.plan as any))}
+                title="Abonnement et détails du forfait"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
                   user.plan === 'starter'
-                    ? 'text-indigo-600'
+                    ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-900'
                     : user.plan === 'business'
-                    ? 'text-amber-600'
+                    ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900'
                     : user.plan === 'pro'
-                    ? 'text-purple-600'
-                    : 'text-amber-600'
+                    ? 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-900'
+                    : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900 ring-1 ring-amber-300/30'
                 }`}
-              />
-              <span className="font-extrabold uppercase">
-                {user.plan === 'free' ? 'Sans IA' : user.plan}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="font-bold">
-                {user.plan === 'free' ? (
-                  <span className="text-amber-800 font-extrabold">Payer l’IA</span>
-                ) : (
-                  <>
-                    {user.availableCredits} <span className="hidden sm:inline font-normal text-slate-500">gén.</span>
-                  </>
-                )}
-              </span>
-            </button>
+              >
+                <Crown
+                  className={`w-3.5 h-3.5 ${
+                    user.plan === 'starter'
+                      ? 'text-indigo-600'
+                      : user.plan === 'business'
+                      ? 'text-amber-600'
+                      : user.plan === 'pro'
+                      ? 'text-purple-600'
+                      : 'text-amber-600'
+                  }`}
+                />
+                <span className="font-extrabold uppercase">
+                  {user.plan === 'free' ? 'Sans IA' : user.plan}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="font-bold">
+                  {user.plan === 'free' ? (
+                    <span className="text-amber-800 font-extrabold">Payer l’IA</span>
+                  ) : (
+                    <>
+                      {user.availableCredits} <span className="hidden sm:inline font-normal text-slate-500">gén.</span>
+                    </>
+                  )}
+                </span>
+              </button>
+            </div>
 
             {/* Notification Center */}
             <NotificationCenter />

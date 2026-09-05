@@ -25,6 +25,10 @@ import {
   Smartphone,
   Receipt,
   PhoneCall,
+  ShieldCheck,
+  Lock,
+  FileText,
+  Code2,
 } from 'lucide-react';
 import { AppTab } from '../types';
 
@@ -39,6 +43,8 @@ export const Dashboard: React.FC = () => {
     setCurrentTab,
     setIsPricingModalOpen,
     openPaymentModal,
+    openReceiptModal,
+    openCodeHubModal,
     formatMoney,
     setIsViralPostModalOpen,
     openWhatsAppTutorialModal,
@@ -223,6 +229,58 @@ export const Dashboard: React.FC = () => {
               <span>Tarifs</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Official Verified Purchase & Price Lock Banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-linear-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-extrabold uppercase tracking-wide">
+                <Check className="w-3 h-3 text-emerald-700" /> Achat Confirmé & Actif
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-950 text-[11px] font-extrabold">
+                <Lock className="w-3 h-3 text-amber-700" /> Tarif Bloqué à Vie (0% de hausse)
+              </span>
+              <span className="text-xs text-slate-500 font-mono">
+                Réf: {user.activeReceipt?.transactionRef || 'TRX-0163638893-VALID'}
+              </span>
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">
+              Forfait {user.plan.toUpperCase()} garanti • Transfert réglé au 0163638893
+            </h3>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Votre tarif est scellé sans augmentation possible. Vos générateurs d'images, de vidéos, de textes et d'appels IA sont 100% débloqués.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
+          <button
+            onClick={() => openCodeHubModal()}
+            className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer border border-slate-700 active:scale-95"
+          >
+            <Code2 className="w-4 h-4 text-indigo-400" />
+            <span>Codes & Blueprint 2.0</span>
+          </button>
+          <button
+            onClick={() => openReceiptModal()}
+            className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+          >
+            <FileText className="w-4 h-4 text-emerald-600" />
+            <span>Reçu Officiel</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('video')}
+            className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+          >
+            <Video className="w-4 h-4" />
+            <span>Générateur Vidéo</span>
+          </button>
         </div>
       </div>
 

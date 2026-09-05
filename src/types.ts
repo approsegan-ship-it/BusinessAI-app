@@ -59,6 +59,26 @@ export interface TeamMember {
   role: 'admin' | 'editor' | 'viewer';
 }
 
+export interface PurchaseReceipt {
+  receiptId: string;
+  orderNumber: string;
+  planId: UserPlan;
+  planName: string;
+  amount: number;
+  currency: string;
+  formattedAmount: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone?: string;
+  paymentNumber: string;
+  paymentMethod: string;
+  purchasedAt: string;
+  status: 'completed' | 'verified';
+  priceLocked: boolean;
+  priceLockGuarantee: string;
+  transactionRef: string;
+}
+
 export interface UserAccount {
   name: string;
   email: string;
@@ -71,6 +91,11 @@ export interface UserAccount {
   referralCode: string;
   joinedAt?: string;
   teamMembers?: TeamMember[];
+  isPurchased?: boolean;
+  purchaseStatus?: 'completed' | 'verified';
+  priceLocked?: boolean;
+  priceLockDate?: string;
+  activeReceipt?: PurchaseReceipt;
 }
 
 export type BadgeId =
@@ -320,6 +345,11 @@ export interface InvoiceDocument {
     ibanOrRib?: string;
   };
   status: InvoiceStatus;
+  isPriceLocked?: boolean;
+  priceLockedAt?: string;
+  isPurchaseCompleted?: boolean;
+  purchaseCompletedAt?: string;
+  purchaseTransactionRef?: string;
   createdAt: string;
   updatedAt: string;
 }

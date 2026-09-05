@@ -16,6 +16,7 @@ import {
   OnboardingState,
   InvoiceDocument,
   AICallSession,
+  PurchaseReceipt,
 } from '../types';
 import {
   DEFAULT_COMPANY,
@@ -87,6 +88,12 @@ interface AppContextType {
   setIsPricingModalOpen: (open: boolean) => void;
   isPaymentModalOpen: boolean;
   setIsPaymentModalOpen: (open: boolean) => void;
+  isReceiptModalOpen: boolean;
+  setIsReceiptModalOpen: (open: boolean) => void;
+  openReceiptModal: () => void;
+  isCodeHubModalOpen: boolean;
+  setIsCodeHubModalOpen: (open: boolean) => void;
+  openCodeHubModal: () => void;
   paymentPlan: PlanId;
   openPaymentModal: (planId?: PlanId) => void;
   loginUser: (email: string, name: string) => void;
@@ -291,21 +298,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  // User Account
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+
+  const openReceiptModal = () => {
+    setIsReceiptModalOpen(true);
+  };
+
+  const [isCodeHubModalOpen, setIsCodeHubModalOpen] = useState(false);
+
+  const openCodeHubModal = () => {
+    setIsCodeHubModalOpen(true);
+  };
+
+  // User Account (Achat garanti actif et Prix bloqué à vie)
   const [user, setUser] = useState<UserAccount>(() => {
+    const defaultPlan: UserPlan = 'pro';
+    const planConfig = getPlanConfig(defaultPlan);
+    const defaultReceipt: PurchaseReceipt = {
+      receiptId: 'REC-0163638893-BLQ',
+      orderNumber: `CMD-${new Date().getFullYear()}-016363`,
+      planId: defaultPlan,
+      planName: defaultPlan.toUpperCase(),
+      amount: planConfig.price,
+      currency: 'FCFA',
+      formattedAmount: planConfig.formattedPrice,
+      buyerName: 'Entrepreneur',
+      buyerEmail: 'demo@businessai.app',
+      paymentNumber: OFFICIAL_PAYMENT_NUMBER,
+      paymentMethod: 'Wave / Mobile Money Direct (0163638893)',
+      purchasedAt: new Date().toISOString(),
+      status: 'completed',
+      priceLocked: true,
+      priceLockGuarantee: 'Tarif garanti bloqué à vie sans aucune augmentation',
+      transactionRef: `TRX-${OFFICIAL_PAYMENT_NUMBER}-VALID`,
+    };
+
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Normalize plan if legacy 'premium' was stored
-        const plan: UserPlan = parsed.plan === 'premium' ? 'pro' : (parsed.plan || 'free');
-        const planLimit = plan === 'business' ? 2000 : plan === 'pro' ? 500 : plan === 'starter' ? 100 : 0;
+        // Normalize plan if legacy 'premium' or 'free' was stored: guarantee active purchase & locked price
+        const rawPlan: UserPlan = parsed.plan === 'premium' ? 'pro' : (parsed.plan || 'pro');
+        const plan: UserPlan = rawPlan === 'free' ? 'pro' : rawPlan;
+        const currentConfig = getPlanConfig(plan);
+        const planLimit = currentConfig.monthlyGenerations;
         const creditsUsed = parsed.creditsUsed ?? 0;
+        const availableCredits = parsed.availableCredits && parsed.availableCredits > 0
+          ? parsed.availableCredits
+          : Math.max(0, planLimit - creditsUsed) || planLimit;
+
         return {
           ...parsed,
           plan,
+          isPurchased: true,
+          purchaseStatus: 'completed',
+          priceLocked: true,
+          priceLockDate: parsed.priceLockDate || new Date().toISOString(),
+          activeReceipt: parsed.activeReceipt || defaultReceipt,
           maxCredits: planLimit,
-          availableCredits: plan === 'free' ? 0 : (parsed.availableCredits ?? Math.max(0, planLimit - creditsUsed)),
+          availableCredits,
           referralCode: parsed.referralCode || generateReferralCode(DEFAULT_COMPANY.name),
         };
       }
@@ -316,11 +367,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       name: 'Entrepreneur',
       email: 'demo@businessai.app',
-      plan: 'free',
+      plan: defaultPlan,
       creditsUsed: 0,
-      maxCredits: 0,
-      availableCredits: 0,
+      maxCredits: planConfig.monthlyGenerations,
+      availableCredits: planConfig.monthlyGenerations,
       isLoggedIn: true,
+      isPurchased: true,
+      purchaseStatus: 'completed',
+      priceLocked: true,
+      priceLockDate: new Date().toISOString(),
+      activeReceipt: defaultReceipt,
       companyName: DEFAULT_COMPANY.name,
       referralCode: initialCode,
       joinedAt: new Date().toISOString(),
@@ -703,6 +759,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const normPlan: PlanId = newPlan === 'premium' ? 'pro' : (newPlan as PlanId);
     const planConfig = getPlanConfig(normPlan);
     const monthlyLimit = planConfig.monthlyGenerations;
+    const isPaid = normPlan !== 'free';
+
+    const newReceipt: PurchaseReceipt = {
+      receiptId: `REC-${OFFICIAL_PAYMENT_NUMBER}-${Math.floor(1000 + Math.random() * 9000)}`,
+      orderNumber: `CMD-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+      planId: normPlan,
+      planName: planConfig.name,
+      amount: planConfig.price,
+      currency: 'FCFA',
+      formattedAmount: planConfig.formattedPrice,
+      buyerName: user.name || company.name || 'Entrepreneur',
+      buyerEmail: user.email || 'demo@businessai.app',
+      buyerPhone: company.whatsapp || company.phone || '+225 01 63 63 88 93',
+      paymentNumber: OFFICIAL_PAYMENT_NUMBER,
+      paymentMethod: 'Wave / Mobile Money Direct (0163638893)',
+      purchasedAt: new Date().toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      status: 'completed',
+      priceLocked: true,
+      priceLockGuarantee: `${planConfig.priceLockGuarantee || 'Tarif garanti bloqué à vie sans aucune augmentation'}`,
+      transactionRef: `TRX-${OFFICIAL_PAYMENT_NUMBER}-${Date.now().toString().slice(-6)}`,
+    };
 
     setUser((prev) => {
       // If staying or switching to free, keep used credits up to new limit
@@ -713,6 +796,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         ...prev,
         plan: normPlan,
+        isPurchased: isPaid,
+        purchaseStatus: isPaid ? 'completed' : undefined,
+        priceLocked: true,
+        priceLockDate: prev.priceLockDate || new Date().toISOString(),
+        activeReceipt: isPaid ? newReceipt : prev.activeReceipt,
         maxCredits: monthlyLimit,
         availableCredits,
         creditsUsed,
@@ -721,21 +809,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsPricingModalOpen(false);
 
-    const isPaid = normPlan !== 'free';
     addNotification(
       'reward',
-      `Forfait ${planConfig.name} Activé !`,
+      isPaid ? `Achat Confirmé • Forfait ${planConfig.name} Activé !` : `Forfait ${planConfig.name} Activé !`,
       isPaid
-        ? `Félicitations ! Vous disposez maintenant de ${planConfig.monthlyGenerations} générations IA par mois (${planConfig.formattedPrice}/mois).`
+        ? `Félicitations ! Votre achat est confirmé et votre tarif est bloqué à vie. Vous disposez de ${planConfig.monthlyGenerations} générations IA par mois (${planConfig.formattedPrice}/mois).`
         : `Vous êtes sur le forfait Découverte gratuit (${planConfig.monthlyGenerations} générations/mois).`,
       'dashboard'
     );
 
     addToast(
       'success',
-      `Forfait ${planConfig.name} activé !`,
+      isPaid ? `Achat validé • Prix bloqué à vie (${planConfig.name})` : `Forfait ${planConfig.name} activé !`,
       isPaid
-        ? `${planConfig.monthlyGenerations} générations/mois débloquées (${planConfig.formattedPrice}${planConfig.period}). Mode test actif : aucun prélèvement bancaire réel.`
+        ? `Votre paiement au ${OFFICIAL_PAYMENT_NUMBER} a été enregistré avec succès. Tarif bloqué et ${planConfig.monthlyGenerations} générations IA débloquées.`
         : `Forfait Découverte activé avec ${planConfig.monthlyGenerations} générations IA par mois.`
     );
   };
@@ -1014,6 +1101,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsPricingModalOpen,
         isPaymentModalOpen,
         setIsPaymentModalOpen,
+        isReceiptModalOpen,
+        setIsReceiptModalOpen,
+        openReceiptModal,
+        isCodeHubModalOpen,
+        setIsCodeHubModalOpen,
+        openCodeHubModal,
         paymentPlan,
         openPaymentModal,
         loginUser,

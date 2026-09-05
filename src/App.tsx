@@ -19,6 +19,8 @@ import { CompanyProfileView } from './components/CompanyProfileView';
 import { PricingView } from './components/PricingView';
 import { PricingModal } from './components/PricingModal';
 import { PaymentInstructionModal } from './components/PaymentInstructionModal';
+import { PurchaseReceiptModal } from './components/PurchaseReceiptModal';
+import { BusinessAICodeHubModal } from './components/BusinessAICodeHubModal';
 import { AuthModal } from './components/AuthModal';
 import { WhatsAppTutorialModal } from './components/WhatsAppTutorialModal';
 import { ShareModal } from './components/ShareModal';
@@ -29,7 +31,16 @@ import { ReferralView } from './components/ReferralView';
 import { EarnCreditsView } from './components/EarnCreditsView';
 
 const AppContent: React.FC = () => {
-  const { currentTab, isPaymentModalOpen, setIsPaymentModalOpen, paymentPlan } = useApp();
+  const {
+    currentTab,
+    isPaymentModalOpen,
+    setIsPaymentModalOpen,
+    paymentPlan,
+    isReceiptModalOpen,
+    setIsReceiptModalOpen,
+    isCodeHubModalOpen,
+    setIsCodeHubModalOpen,
+  } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -105,6 +116,14 @@ const AppContent: React.FC = () => {
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         preselectedPlan={paymentPlan}
+      />
+      <PurchaseReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+      />
+      <BusinessAICodeHubModal
+        isOpen={isCodeHubModalOpen}
+        onClose={() => setIsCodeHubModalOpen(false)}
       />
       <AuthModal />
       <ToastContainer />

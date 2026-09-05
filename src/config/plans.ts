@@ -23,6 +23,8 @@ export interface PricingPlan {
   maxUsers: number;
   historyLimit: number;
   supportLevel: string;
+  priceLocked: boolean;
+  priceLockGuarantee: string;
   colorScheme: {
     primary: string;
     border: string;
@@ -62,6 +64,8 @@ export const PRICING_PLANS: Record<PlanId, PricingPlan> = {
     maxUsers: 1,
     historyLimit: 5,
     supportLevel: 'FAQ & Centre d’aide',
+    priceLocked: true,
+    priceLockGuarantee: 'Tarif gratuit garanti sans frais cachés',
     colorScheme: {
       primary: 'text-slate-900',
       border: 'border-slate-200',
@@ -96,6 +100,8 @@ export const PRICING_PLANS: Record<PlanId, PricingPlan> = {
     maxUsers: 1,
     historyLimit: 50,
     supportLevel: 'Support standard sous 24h',
+    priceLocked: true,
+    priceLockGuarantee: 'Prix bloqué à vie : 9 900 FCFA garanti sans aucune hausse future',
     colorScheme: {
       primary: 'text-indigo-900',
       border: 'border-indigo-600 ring-2 ring-indigo-600/30',
@@ -130,6 +136,8 @@ export const PRICING_PLANS: Record<PlanId, PricingPlan> = {
     maxUsers: 2,
     historyLimit: 200,
     supportLevel: 'Support rapide sous 12h',
+    priceLocked: true,
+    priceLockGuarantee: 'Prix bloqué à vie : 19 900 FCFA garanti sans aucune hausse future',
     colorScheme: {
       primary: 'text-purple-900',
       border: 'border-purple-300',
@@ -164,6 +172,8 @@ export const PRICING_PLANS: Record<PlanId, PricingPlan> = {
     maxUsers: 5,
     historyLimit: 99999,
     supportLevel: 'Support VIP direct WhatsApp & hotline',
+    priceLocked: true,
+    priceLockGuarantee: 'Prix bloqué à vie : 49 000 FCFA garanti sans aucune hausse future',
     colorScheme: {
       primary: 'text-amber-950',
       border: 'border-amber-400',

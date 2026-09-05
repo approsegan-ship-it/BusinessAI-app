@@ -36,6 +36,7 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
     user,
     displayCurrency,
     upgradePlan,
+    openReceiptModal,
     addToast,
     addNotification,
     t,
@@ -124,6 +125,12 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
                 <p className="text-xs sm:text-sm text-slate-600 mt-1">
                   Transférez le montant de votre forfait sur le numéro officiel pour débloquer votre IA instantanément.
                 </p>
+
+                {/* Price Lock Guaranteed Banner */}
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold">
+                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Prix Garanti Bloqué à Vie : Aucune augmentation future</span>
+                </div>
               </div>
 
               {/* Plan selector pills */}
@@ -316,14 +323,25 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 max-w-md mx-auto space-y-1.5 text-left">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 max-w-md mx-auto space-y-2 text-left">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Statut de la commande :</span>
+                  <span className="font-extrabold text-emerald-700 uppercase">✓ Achat Confirmé & Payé</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Forfait :</span>
                   <span className="font-bold text-slate-900">{currentPlan.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Montant :</span>
+                  <span className="text-slate-500">Montant Réglé :</span>
                   <span className="font-bold text-indigo-600">{formattedPrice}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Garantie Tarifaire :</span>
+                  <span className="font-bold text-amber-700 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-600" />
+                    <span>Prix Bloqué à Vie (0% hausse)</span>
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Bénéficiaire :</span>
@@ -331,13 +349,26 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleCloseAfterSuccess}
-                className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm shadow-md transition-all cursor-pointer"
-              >
-                Commencer à générer avec l'IA
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCloseAfterSuccess();
+                    openReceiptModal();
+                  }}
+                  className="flex-1 py-3 px-4 rounded-2xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-xs transition-all cursor-pointer shadow-xs"
+                >
+                  Voir mon Reçu Officiel d'Achat
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCloseAfterSuccess}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
+                >
+                  Commencer à générer avec l'IA
+                </button>
+              </div>
             </div>
           )}
         </motion.div>
