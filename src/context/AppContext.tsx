@@ -76,7 +76,10 @@ interface AppContextType {
   updateCallSession: (id: string, session: Partial<AICallSession>) => void;
   deleteCallSession: (id: string) => void;
   user: UserAccount;
-  upgradePlan: (plan: UserPlan) => void;
+  upgradePlan: (
+    plan: UserPlan,
+    paymentDetails?: { senderName?: string; senderPhone?: string; transactionRef?: string }
+  ) => void;
   consumeCredit: (cost?: number) => boolean;
   addBonusCredits: (amount: number, reason: string) => void;
   toasts: ToastMessage[];
@@ -310,51 +313,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCodeHubModalOpen(true);
   };
 
-  // User Account (Achat garanti actif et Prix bloqué à vie)
+  // User Account (Par défaut: Non Payé - Paiement obligatoire vers 0163638893)
   const [user, setUser] = useState<UserAccount>(() => {
-    const defaultPlan: UserPlan = 'pro';
-    const planConfig = getPlanConfig(defaultPlan);
-    const defaultReceipt: PurchaseReceipt = {
-      receiptId: 'REC-0163638893-BLQ',
-      orderNumber: `CMD-${new Date().getFullYear()}-016363`,
-      planId: defaultPlan,
-      planName: defaultPlan.toUpperCase(),
-      amount: planConfig.price,
-      currency: 'FCFA',
-      formattedAmount: planConfig.formattedPrice,
-      buyerName: 'Entrepreneur',
-      buyerEmail: 'demo@businessai.app',
-      paymentNumber: OFFICIAL_PAYMENT_NUMBER,
-      paymentMethod: 'Wave / Mobile Money Direct (0163638893)',
-      purchasedAt: new Date().toISOString(),
-      status: 'completed',
-      priceLocked: true,
-      priceLockGuarantee: 'Tarif garanti bloqué à vie sans aucune augmentation',
-      transactionRef: `TRX-${OFFICIAL_PAYMENT_NUMBER}-VALID`,
-    };
+    const defaultPlan: UserPlan = 'free';
 
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Normalize plan if legacy 'premium' or 'free' was stored: guarantee active purchase & locked price
-        const rawPlan: UserPlan = parsed.plan === 'premium' ? 'pro' : (parsed.plan || 'pro');
-        const plan: UserPlan = rawPlan === 'free' ? 'pro' : rawPlan;
+        // Si ancien profil démo ou faux reçu démo automatique, forcer en non payé
+        const isFakeDemo =
+          parsed.activeReceipt?.receiptId === 'REC-0163638893-BLQ' ||
+          parsed.email === 'demo@businessai.app' ||
+          !parsed.isPurchased ||
+          parsed.plan === 'free';
+
+        if (isFakeDemo) {
+          return {
+            ...parsed,
+            plan: 'free',
+            isPurchased: false,
+            purchaseStatus: undefined,
+            priceLocked: false,
+            activeReceipt: undefined,
+            maxCredits: 0,
+            availableCredits: 0,
+            creditsUsed: 0,
+          };
+        }
+
+        const plan: UserPlan = parsed.plan || 'free';
         const currentConfig = getPlanConfig(plan);
         const planLimit = currentConfig.monthlyGenerations;
         const creditsUsed = parsed.creditsUsed ?? 0;
         const availableCredits = parsed.availableCredits && parsed.availableCredits > 0
           ? parsed.availableCredits
-          : Math.max(0, planLimit - creditsUsed) || planLimit;
+          : Math.max(0, planLimit - creditsUsed);
 
         return {
           ...parsed,
           plan,
-          isPurchased: true,
-          purchaseStatus: 'completed',
-          priceLocked: true,
-          priceLockDate: parsed.priceLockDate || new Date().toISOString(),
-          activeReceipt: parsed.activeReceipt || defaultReceipt,
+          isPurchased: parsed.isPurchased === true,
+          purchaseStatus: parsed.isPurchased ? 'completed' : undefined,
+          priceLocked: parsed.isPurchased === true,
+          activeReceipt: parsed.activeReceipt,
           maxCredits: planLimit,
           availableCredits,
           referralCode: parsed.referralCode || generateReferralCode(DEFAULT_COMPANY.name),
@@ -363,20 +365,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // ignore
     }
-    const initialCode = generateReferralCode('PRO');
+    const initialCode = generateReferralCode('CLIENT');
     return {
-      name: 'Entrepreneur',
-      email: 'demo@businessai.app',
+      name: 'Client',
+      email: '',
       plan: defaultPlan,
       creditsUsed: 0,
-      maxCredits: planConfig.monthlyGenerations,
-      availableCredits: planConfig.monthlyGenerations,
+      maxCredits: 0,
+      availableCredits: 0,
       isLoggedIn: true,
-      isPurchased: true,
-      purchaseStatus: 'completed',
-      priceLocked: true,
-      priceLockDate: new Date().toISOString(),
-      activeReceipt: defaultReceipt,
+      isPurchased: false,
+      purchaseStatus: undefined,
+      priceLocked: false,
+      activeReceipt: undefined,
       companyName: DEFAULT_COMPANY.name,
       referralCode: initialCode,
       joinedAt: new Date().toISOString(),
@@ -755,7 +756,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast('info', 'Session d’appel supprimée');
   };
 
-  const upgradePlan = (newPlan: UserPlan) => {
+  const upgradePlan = (
+    newPlan: UserPlan,
+    paymentDetails?: { senderName?: string; senderPhone?: string; transactionRef?: string }
+  ) => {
     const normPlan: PlanId = newPlan === 'premium' ? 'pro' : (newPlan as PlanId);
     const planConfig = getPlanConfig(normPlan);
     const monthlyLimit = planConfig.monthlyGenerations;
@@ -769,9 +773,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount: planConfig.price,
       currency: 'FCFA',
       formattedAmount: planConfig.formattedPrice,
-      buyerName: user.name || company.name || 'Entrepreneur',
-      buyerEmail: user.email || 'demo@businessai.app',
-      buyerPhone: company.whatsapp || company.phone || '+225 01 63 63 88 93',
+      buyerName: paymentDetails?.senderName || user.name || company.name || 'Client BusinessAI',
+      buyerEmail: user.email || 'client@businessai.app',
+      buyerPhone: paymentDetails?.senderPhone || company.whatsapp || company.phone || '+225 01 63 63 88 93',
       paymentNumber: OFFICIAL_PAYMENT_NUMBER,
       paymentMethod: 'Wave / Mobile Money Direct (0163638893)',
       purchasedAt: new Date().toLocaleDateString('fr-FR', {
@@ -784,7 +788,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'completed',
       priceLocked: true,
       priceLockGuarantee: `${planConfig.priceLockGuarantee || 'Tarif garanti bloqué à vie sans aucune augmentation'}`,
-      transactionRef: `TRX-${OFFICIAL_PAYMENT_NUMBER}-${Date.now().toString().slice(-6)}`,
+      transactionRef: paymentDetails?.transactionRef || `TRX-${OFFICIAL_PAYMENT_NUMBER}-${Date.now().toString().slice(-6)}`,
     };
 
     setUser((prev) => {
@@ -830,14 +834,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const consumeCredit = (cost: number = 1): boolean => {
     const planConfig = getPlanConfig(user.plan);
 
-    // Free plan has 0 generations: must pay first to use AI
-    if (user.plan === 'free' || user.maxCredits <= 0) {
+    // Free plan has 0 generations or unpaid: must pay first to use AI
+    if (user.plan === 'free' || !user.isPurchased || user.maxCredits <= 0) {
       addToast(
         'warning',
-        'Paiement requis pour activer l’IA',
-        `L’utilisation de l’Assistant et des générateurs IA nécessite un forfait actif (Starter dès ${PRICING_PLANS.starter.formattedPrice}, Pro ou Business).`
+        'Paiement requis pour débloquer l’IA',
+        `L’accès aux générateurs et à l’Assistant IA requiert un forfait actif. Veuillez effectuer votre transfert au ${OFFICIAL_PAYMENT_NUMBER} (dès ${PRICING_PLANS.starter.formattedPrice}).`
       );
-      setIsPricingModalOpen(true);
+      openPaymentModal('starter');
       return false;
     }
 

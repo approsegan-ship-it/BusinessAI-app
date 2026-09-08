@@ -209,53 +209,64 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Codes 2.0</span>
               </button>
 
-              <button
-                onClick={() => openReceiptModal()}
-                title="Achat vérifié & Tarif bloqué à vie - Cliquez pour voir le reçu officiel"
-                className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Achat Validé</span>
-                <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-200/70 text-emerald-800 font-extrabold flex items-center gap-0.5">
-                  <Lock className="w-2.5 h-2.5" /> Prix Bloqué
-                </span>
-              </button>
+              {!user.isPurchased || user.plan === 'free' ? (
+                <button
+                  onClick={() => openPaymentModal('starter')}
+                  title="Effectuez votre règlement au 0163638893 pour activer l'IA"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-md cursor-pointer active:scale-95 animate-pulse"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-200" />
+                  <span>PAYER L'ACCÈS (0163638893)</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => openReceiptModal()}
+                  title="Achat vérifié & Tarif bloqué à vie - Cliquez pour voir le reçu officiel"
+                  className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Achat Validé</span>
+                  <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-200/70 text-emerald-800 font-extrabold flex items-center gap-0.5">
+                    <Lock className="w-2.5 h-2.5" /> Prix Bloqué
+                  </span>
+                </button>
+              )}
 
               <button
                 onClick={() => openPaymentModal(user.plan === 'free' ? 'starter' : (user.plan as any))}
                 title="Abonnement et détails du forfait"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
-                  user.plan === 'starter'
+                  user.isPurchased && user.plan === 'starter'
                     ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-900'
-                    : user.plan === 'business'
+                    : user.isPurchased && user.plan === 'business'
                     ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900'
-                    : user.plan === 'pro'
+                    : user.isPurchased && user.plan === 'pro'
                     ? 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-900'
-                    : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900 ring-1 ring-amber-300/30'
+                    : 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-900 ring-1 ring-rose-300/50'
                 }`}
               >
                 <Crown
                   className={`w-3.5 h-3.5 ${
-                    user.plan === 'starter'
-                      ? 'text-indigo-600'
-                      : user.plan === 'business'
-                      ? 'text-amber-600'
-                      : user.plan === 'pro'
-                      ? 'text-purple-600'
-                      : 'text-amber-600'
+                    user.isPurchased
+                      ? user.plan === 'starter'
+                        ? 'text-indigo-600'
+                        : user.plan === 'business'
+                        ? 'text-amber-600'
+                        : 'text-purple-600'
+                      : 'text-rose-600'
                   }`}
                 />
                 <span className="font-extrabold uppercase">
-                  {user.plan === 'free' ? 'Sans IA' : user.plan}
+                  {user.isPurchased ? user.plan : 'NON PAYÉ'}
                 </span>
                 <span className="text-slate-300">•</span>
                 <span className="font-bold">
-                  {user.plan === 'free' ? (
-                    <span className="text-amber-800 font-extrabold">Payer l’IA</span>
-                  ) : (
+                  {user.isPurchased ? (
                     <>
                       {user.availableCredits} <span className="hidden sm:inline font-normal text-slate-500">gén.</span>
                     </>
+                  ) : (
+                    <span className="text-rose-700 font-extrabold">0 crédit (Verrouillé)</span>
                   )}
                 </span>
               </button>

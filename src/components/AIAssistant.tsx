@@ -92,7 +92,7 @@ export const AIAssistant: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
+  const isFreePlan = user.plan === 'free' || !user.isPurchased || user.maxCredits <= 0;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

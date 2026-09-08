@@ -221,6 +221,17 @@ export const VideoGenerator: React.FC = () => {
   // Google Veo Video Generation Handler
   const handleStartVeoGeneration = async () => {
     if (!generatedScript) return;
+
+    if (user.plan === 'free' || !user.isPurchased) {
+      addToast(
+        'warning',
+        'Paiement requis pour Veo',
+        'Le modèle cinématique Google Veo requiert un abonnement actif. Effectuez votre règlement au 0163638893.'
+      );
+      openPaymentModal('pro');
+      return;
+    }
+
     setVeoLoading(true);
     setVeoError(null);
     setVeoStatusText('Connexion au modèle Veo 3.1...');
@@ -298,6 +309,16 @@ export const VideoGenerator: React.FC = () => {
   // Instant Studio Animated Video Export Engine
   const handleExportStudioAnimatedVideo = async () => {
     if (!generatedScript) return;
+
+    if (user.plan === 'free' || !user.isPurchased) {
+      addToast(
+        'warning',
+        'Paiement requis pour exporter la vidéo',
+        'L’exportation de vidéos MP4 de haute qualité requiert un abonnement actif. Effectuez votre règlement au 0163638893.'
+      );
+      openPaymentModal('starter');
+      return;
+    }
 
     setIsExportingStudioVideo(true);
     setStudioExportProgress(0);
@@ -495,20 +516,17 @@ export const VideoGenerator: React.FC = () => {
     }
 
     // Paywall verification: requires an active subscription
-    if (user.plan === 'free') {
+    if (user.plan === 'free' || !user.isPurchased) {
       addToast(
         'warning',
-        'Abonnement requis',
+        'Abonnement requis • Paiement au 0163638893',
         'Envoyez votre paiement au 0163638893 pour activer l’IA et générer vos vidéos marketing.'
       );
       openPaymentModal('starter');
       return;
     }
 
-    // Check credits
-    if (user.availableCredits <= 0) {
-      addToast('warning', 'Crédits épuisés', 'Vous avez atteint la limite de générations pour ce cycle.');
-      openPaymentModal('starter');
+    if (!consumeCredit(1)) {
       return;
     }
 
@@ -531,7 +549,6 @@ export const VideoGenerator: React.FC = () => {
       });
 
       setGeneratedScript(result.script);
-      consumeCredit(1);
 
       // Save to History
       addHistory({
@@ -1088,7 +1105,7 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
               {/* Navigation View Tabs */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100">
                 {[
-                  { id: 'veo_render', label: '🎥 Rendu Vidéo MP4 (Veo & Studio)', icon: Video },
+                  { id: 'veo_render', label: '🎥 Rendu Vidéo (Option 100% Gratuite)', icon: Video },
                   { id: 'simulator', label: '🎬 Simulateur Vidéo & Audio', icon: Tv },
                   { id: 'scenes', label: '📋 Découpage des Scènes', icon: Layers },
                   { id: 'teleprompter', label: '🎙️ Voix-Off & Prompteur', icon: Volume2 },
@@ -1279,6 +1296,16 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
                           ))}
                         </div>
                       </div>
+
+                      {/* Direct Free Video Export CTA */}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('veo_render')}
+                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                      >
+                        <Film className="w-3.5 h-3.5" />
+                        <span>Exporter la Vidéo MP4 (100% Gratuit)</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1568,20 +1595,20 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
               {activeTab === 'veo_render' && (
                 <div className="space-y-6">
                   {/* Option 1: Instant In-Browser Studio Animated Video Render */}
-                  <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 text-white border border-indigo-500/30 shadow-lg space-y-5">
+                  <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 text-white border border-emerald-500/40 shadow-lg space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
-                            ⚡ Immédiat &amp; Sans Quota
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-xs font-bold border border-emerald-400/50 flex items-center gap-1">
+                            ✨ 100% Gratuit &amp; Illimité
                           </span>
                           <span className="text-xs text-indigo-200 font-mono">Format {format === 'landscape_16_9' ? '16:9' : '9:16'}</span>
                         </div>
                         <h3 className="text-lg font-bold text-white mt-1">
-                          Studio Export Vidéo Animée MP4 / WebM
+                          Studio Export Vidéo Animée MP4 (Option Gratuite)
                         </h3>
                         <p className="text-xs text-slate-300 mt-0.5">
-                          Compile votre storyboard en vidéo avec transitions, animations de texte, barre de progression et coordonnées WhatsApp.
+                          Compile immédiatement votre storyboard en vidéo animée avec transitions, textes clés, scènes minutées et votre numéro WhatsApp, sans frais ni abonnement.
                         </p>
                       </div>
 
@@ -1589,7 +1616,7 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
                         type="button"
                         onClick={handleExportStudioAnimatedVideo}
                         disabled={isExportingStudioVideo}
-                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shrink-0"
+                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-indigo-600 hover:from-emerald-600 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shrink-0"
                       >
                         {isExportingStudioVideo ? (
                           <>
@@ -1599,7 +1626,7 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
                         ) : (
                           <>
                             <Film className="w-4 h-4" />
-                            <span>Générer le Fichier Vidéo</span>
+                            <span>Générer la Vidéo Gratuite (MP4)</span>
                           </>
                         )}
                       </button>

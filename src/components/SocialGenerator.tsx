@@ -27,7 +27,7 @@ export const SocialGenerator: React.FC = () => {
   const [activeResultTab, setActiveResultTab] = useState<keyof SocialPostResults>('instagram');
   const [results, setResults] = useState<SocialPostResults | null>(null);
 
-  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
+  const isFreePlan = user.plan === 'free' || !user.isPurchased || user.maxCredits <= 0;
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();

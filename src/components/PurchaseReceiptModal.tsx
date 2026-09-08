@@ -29,10 +29,61 @@ export const PurchaseReceiptModal: React.FC<PurchaseReceiptModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { user, company, formatMoney, addToast } = useApp();
+  const { user, company, formatMoney, addToast, openPaymentModal } = useApp();
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
+
+  if (!user.isPurchased || user.plan === 'free') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl text-center text-slate-900"
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-7 h-7" />
+          </div>
+
+          <h3 className="text-xl font-extrabold text-slate-900">
+            Aucun Paiement Validé
+          </h3>
+
+          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+            Votre compte est actuellement sur la version non payée. Les reçus d'achat officiels et la garantie de tarif bloqué à vie sont délivrés dès réception de votre transfert vers le <strong>{OFFICIAL_PAYMENT_DISPLAY}</strong>.
+          </p>
+
+          <div className="mt-6 flex flex-col gap-2">
+            <button
+              onClick={() => {
+                onClose();
+                openPaymentModal('starter');
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Régler mon Forfait (01 63 63 88 93)</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Fermer
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   const receipt = user.activeReceipt || {
     receiptId: 'REC-0163638893-BLQ',

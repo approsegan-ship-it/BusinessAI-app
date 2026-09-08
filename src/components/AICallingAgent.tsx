@@ -49,6 +49,7 @@ export const AICallingAgent: React.FC = () => {
     addToast,
     consumeCredit,
     user,
+    openPaymentModal,
   } = useAppContext();
 
   // Selected persona & scenario
@@ -247,6 +248,16 @@ export const AICallingAgent: React.FC = () => {
 
   // Start Call Simulation
   const handleStartCall = async () => {
+    if (!user.isPurchased) {
+      addToast(
+        'error',
+        'Paiement requis',
+        'Les appels vocaux IA requièrent un forfait payé. Effectuez votre transfert au 0163638893.'
+      );
+      openPaymentModal('starter');
+      return;
+    }
+
     let turns = scriptTurns;
     if (turns.length === 0) {
       await handleGenerateScript();

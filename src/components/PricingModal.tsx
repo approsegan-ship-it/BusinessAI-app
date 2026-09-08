@@ -108,7 +108,7 @@ export const PricingModal: React.FC = () => {
           {/* 4 Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 items-stretch mb-6">
             {PLANS_ARRAY.map((plan: PricingPlan) => {
-              const isCurrent = user.plan === plan.id;
+              const isCurrent = user.isPurchased ? user.plan === plan.id : plan.id === 'free';
               const isRecommended = Boolean(plan.isRecommended);
               const isFree = plan.id === 'free';
               const formattedPrice = formatPriceWithCurrency(plan.price, displayCurrency);

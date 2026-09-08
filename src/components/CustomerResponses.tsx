@@ -81,7 +81,7 @@ export const CustomerResponses: React.FC = () => {
   const [tone, setTone] = useState('Chaleureux & Bienveillant');
   const [loading, setLoading] = useState(false);
 
-  const isFreePlan = user.plan === 'free' || user.maxCredits <= 0;
+  const isFreePlan = user.plan === 'free' || !user.isPurchased || user.maxCredits <= 0;
 
   const [generatedResponse, setGeneratedResponse] = useState<string | null>(null);
   const [salesTip, setSalesTip] = useState<string | null>(null);
