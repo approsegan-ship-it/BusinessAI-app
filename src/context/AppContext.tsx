@@ -17,6 +17,7 @@ import {
   InvoiceDocument,
   AICallSession,
   PurchaseReceipt,
+  ServerSubscriptionStatus,
 } from '../types';
 import {
   DEFAULT_COMPANY,
@@ -40,6 +41,11 @@ import { generateUniqueId, ensureUniqueIds } from '../utils/idGenerator';
 import { Language, getTranslation } from '../i18n/translations';
 import { CurrencyCode, formatPriceWithCurrency } from '../config/currency';
 import { OFFICIAL_PAYMENT_NUMBER } from '../components/PaymentInstructionModal';
+import {
+  fetchServerSubscriptionStatus,
+  createLemonSqueezyCheckout,
+} from '../services/paymentService';
+import { getClientUserId } from '../utils/userId';
 
 interface ShareModalPayload {
   title: string;
@@ -76,6 +82,11 @@ interface AppContextType {
   updateCallSession: (id: string, session: Partial<AICallSession>) => void;
   deleteCallSession: (id: string) => void;
   user: UserAccount;
+  serverSubscription: ServerSubscriptionStatus | null;
+  isCheckingServerSubscription: boolean;
+  isCheckoutLoading: boolean;
+  startLemonSqueezyCheckout: (planId: 'starter' | 'pro' | 'business') => Promise<void>;
+  refreshSubscriptionStatus: () => Promise<void>;
   upgradePlan: (
     plan: UserPlan,
     paymentDetails?: { senderName?: string; senderPhone?: string; transactionRef?: string }
@@ -313,7 +324,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCodeHubModalOpen(true);
   };
 
-  // User Account (Par défaut: Non Payé - Paiement obligatoire vers 0163638893)
+  const [serverSubscription, setServerSubscription] = useState<ServerSubscriptionStatus | null>(null);
+  const [isCheckingServerSubscription, setIsCheckingServerSubscription] = useState(true);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+
+  // User Account (Par défaut: Non Payé - Paiement obligatoire avant toute utilisation)
   const [user, setUser] = useState<UserAccount>(() => {
     const defaultPlan: UserPlan = 'free';
 
@@ -571,6 +586,104 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  const syncServerSubscription = async () => {
+    setIsCheckingServerSubscription(true);
+    try {
+      const status = await fetchServerSubscriptionStatus();
+      if (status) {
+        setServerSubscription(status);
+        if (status.isPaid && status.status === 'active') {
+          setUser((prev) => {
+            const planLimit = status.monthlyGenerations || 100;
+            return {
+              ...prev,
+              id: getClientUserId(),
+              plan: status.plan,
+              isPurchased: true,
+              serverVerified: true,
+              purchaseStatus: 'completed',
+              maxCredits: planLimit,
+              availableCredits: Math.max(0, planLimit - prev.creditsUsed),
+            };
+          });
+        } else {
+          // Explicitly enforce unpaid status from server
+          setUser((prev) => ({
+            ...prev,
+            id: getClientUserId(),
+            plan: 'free',
+            isPurchased: false,
+            serverVerified: false,
+            purchaseStatus: undefined,
+            maxCredits: 0,
+            availableCredits: 0,
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('[AppContext] Erreur vérification abonnement:', err);
+    } finally {
+      setIsCheckingServerSubscription(false);
+    }
+  };
+
+  const refreshSubscriptionStatus = async () => {
+    await syncServerSubscription();
+  };
+
+  const startLemonSqueezyCheckout = async (planId: 'starter' | 'pro' | 'business') => {
+    setIsCheckoutLoading(true);
+    try {
+      const res = await createLemonSqueezyCheckout(planId, user.email, user.name);
+      if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+      if (res.requiresConfig) {
+        addToast(
+          'warning',
+          'Configuration Lemon Squeezy Requise',
+          res.error || 'Veuillez renseigner LEMON_SQUEEZY_API_KEY et les Variant IDs dans le serveur.'
+        );
+        openPaymentModal(planId);
+        return;
+      }
+      if (res.error) {
+        addToast('error', 'Erreur de Paiement', res.error);
+      }
+    } catch (err: any) {
+      addToast('error', 'Connexion impossible', err?.message || 'Erreur lors de la redirection');
+    } finally {
+      setIsCheckoutLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    syncServerSubscription();
+
+    const handlePaymentRequired = () => {
+      setIsPricingModalOpen(true);
+      addToast('warning', 'Paiement Obligatoire', "L'accès à l'IA nécessite un forfait actif.");
+    };
+
+    window.addEventListener('businessai:payment_required', handlePaymentRequired);
+
+    // Vérifier si retour après redirection de paiement réussie
+    if (typeof window !== 'undefined' && window.location.search.includes('payment_success=true')) {
+      addToast('info', 'Paiement reçu', 'Vérification du paiement sur le serveur...');
+      setTimeout(syncServerSubscription, 1200);
+      setTimeout(syncServerSubscription, 4000);
+      setTimeout(syncServerSubscription, 8000);
+    }
+
+    // Polling d'état toutes les 45 secondes pour s'assurer de la validité continue
+    const interval = setInterval(syncServerSubscription, 45000);
+    return () => {
+      window.removeEventListener('businessai:payment_required', handlePaymentRequired);
+      clearInterval(interval);
+    };
+  }, []);
 
   const addNotification = (
     type: InAppNotification['type'],
@@ -1093,6 +1206,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCallSession,
 
         user,
+        serverSubscription,
+        isCheckingServerSubscription,
+        isCheckoutLoading,
+        startLemonSqueezyCheckout,
+        refreshSubscriptionStatus,
         upgradePlan,
         consumeCredit,
         addBonusCredits,

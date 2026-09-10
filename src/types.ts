@@ -79,7 +79,24 @@ export interface PurchaseReceipt {
   transactionRef: string;
 }
 
+export interface ServerSubscriptionStatus {
+  isPaid: boolean;
+  plan: UserPlan;
+  status: 'active' | 'unpaid' | 'expired' | 'cancelled';
+  variantId?: string;
+  activatedAt?: string;
+  expiresAt?: string;
+  monthlyGenerations: number;
+  hasLemonSqueezyConfig: boolean;
+  configuredVariants: {
+    starter: boolean;
+    pro: boolean;
+    business: boolean;
+  };
+}
+
 export interface UserAccount {
+  id?: string;
   name: string;
   email: string;
   plan: UserPlan;
@@ -92,6 +109,7 @@ export interface UserAccount {
   joinedAt?: string;
   teamMembers?: TeamMember[];
   isPurchased?: boolean;
+  serverVerified?: boolean;
   purchaseStatus?: 'completed' | 'verified';
   priceLocked?: boolean;
   priceLockDate?: string;

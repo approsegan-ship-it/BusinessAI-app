@@ -9,6 +9,7 @@ import {
   ImageStyle,
   ImageCategory,
 } from '../types';
+import { getAuthHeaders } from '../utils/userId';
 
 export function buildCompanySystemContext(company: CompanyProfile): string {
   return `Tu es BusinessAI, la plateforme et assistant IA d'élite en stratégie commerciale, marketing et communication d'entreprise.
@@ -42,15 +43,20 @@ export async function generateAIContent(
 
     const response = await fetch('/api/gemini/generate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         prompt,
         systemInstruction,
         temperature,
       }),
     });
+
+    if (response.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
 
     if (!response.ok) {
       throw new Error(`Erreur serveur HTTP ${response.status}`);
@@ -62,6 +68,9 @@ export async function generateAIContent(
       isFallback: Boolean(data.isFallback),
     };
   } catch (error: any) {
+    if (error?.message?.includes('PAID_SUBSCRIPTION_REQUIRED')) {
+      throw error;
+    }
     console.error('Erreur API Gemini Client:', error);
     // Fallback generation locally if backend is unreachable
     return {
@@ -83,14 +92,19 @@ export async function chatWithAI(
 
     const response = await fetch('/api/gemini/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         messages,
         systemInstruction,
       }),
     });
+
+    if (response.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
 
     if (!response.ok) {
       throw new Error(`Erreur HTTP ${response.status}`);
@@ -102,6 +116,9 @@ export async function chatWithAI(
       isFallback: Boolean(data.isFallback),
     };
   } catch (error: any) {
+    if (error?.message?.includes('PAID_SUBSCRIPTION_REQUIRED')) {
+      throw error;
+    }
     console.error('Erreur Chat Client:', error);
     return {
       text: `Bonjour ! Je suis l'assistant BusinessAI de **${company.name || 'votre entreprise'}**. Comment puis-je vous aider aujourd'hui à développer vos ventes ou communiquer avec vos clients ?`,
@@ -123,15 +140,20 @@ export async function streamAIContent(
   try {
     const response = await fetch('/api/gemini/stream', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         prompt,
         systemInstruction,
         temperature,
       }),
     });
+
+    if (response.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
 
     if (!response.body) {
       throw new Error('ReadableStream non supporté par la réponse');
@@ -842,7 +864,7 @@ export async function generateImageWithAI(
   try {
     const response = await fetch('/api/gemini/generate-image', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         prompt,
         aspectRatio,
@@ -851,6 +873,13 @@ export async function generateImageWithAI(
         businessSector: company?.sector,
       }),
     });
+
+    if (response.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
 
     if (response.ok) {
       const data = await response.json();
@@ -1067,9 +1096,19 @@ export async function startVeoVideoGeneration(
   try {
     const res = await fetch('/api/gemini/generate-video', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ prompt, aspectRatio, resolution }),
     });
+
+    if (res.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      return {
+        error: "Paiement obligatoire : veuillez souscrire à un forfait pour générer des vidéos IA.",
+      };
+    }
+
     const data = await res.json();
     if (!res.ok) {
       return {
@@ -1089,7 +1128,7 @@ export async function pollVeoVideoStatus(
   try {
     const res = await fetch('/api/gemini/video-status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ operationName }),
     });
     if (!res.ok) return { done: false, error: 'Erreur statut' };
@@ -1102,7 +1141,7 @@ export async function pollVeoVideoStatus(
 export async function downloadVeoVideoBlob(operationName: string): Promise<Blob> {
   const res = await fetch('/api/gemini/video-download', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ operationName }),
   });
   if (!res.ok) {

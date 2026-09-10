@@ -1,5 +1,7 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, GenerateVideosOperation } from "@google/genai";
 import dotenv from "dotenv";
@@ -186,24 +188,503 @@ async function chatWithFallback(
   throw lastError || new Error("Échec de la discussion sur tous les modèles disponibles.");
 }
 
+// ============================================================================
+// GESTION DES ABONNEMENTS & INTÉGRATION SÉCURISÉE LEMON SQUEEZY CÔTÉ SERVEUR
+// ============================================================================
+
+export type PaidPlanType = "starter" | "pro" | "business";
+
+interface ServerSubscription {
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  plan: PaidPlanType;
+  status: "active" | "unpaid" | "cancelled" | "expired";
+  variantId: string;
+  orderId?: string;
+  subscriptionId?: string;
+  customerLemonSqueezyId?: string;
+  amount?: number;
+  currency?: string;
+  activatedAt: string;
+  expiresAt?: string;
+  lastVerifiedAt: string;
+}
+
+const SERVER_PLAN_CONFIG: Record<
+  PaidPlanType,
+  {
+    name: string;
+    price: number;
+    currency: string;
+    envVar: string;
+    monthlyGenerations: number;
+  }
+> = {
+  starter: {
+    name: "STARTER",
+    price: 9900,
+    currency: "FCFA",
+    envVar: "LEMON_SQUEEZY_STARTER_VARIANT_ID",
+    monthlyGenerations: 150,
+  },
+  pro: {
+    name: "PRO",
+    price: 19900,
+    currency: "FCFA",
+    envVar: "LEMON_SQUEEZY_PRO_VARIANT_ID",
+    monthlyGenerations: 750,
+  },
+  business: {
+    name: "BUSINESS",
+    price: 49000,
+    currency: "FCFA",
+    envVar: "LEMON_SQUEEZY_BUSINESS_VARIANT_ID",
+    monthlyGenerations: 3000,
+  },
+};
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const SUBSCRIPTIONS_FILE = path.join(DATA_DIR, "subscriptions.json");
+
+function loadSubscriptions(): Record<string, ServerSubscription> {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(SUBSCRIPTIONS_FILE)) {
+      const content = fs.readFileSync(SUBSCRIPTIONS_FILE, "utf-8");
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn("[Subscriptions] Initialisation du store abonnements");
+  }
+  return {};
+}
+
+function saveSubscriptions(subs: Record<string, ServerSubscription>) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subs, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[Subscriptions] Erreur sauvegarde:", err);
+  }
+}
+
+let serverSubscriptions = loadSubscriptions();
+
+function getSubscriptionForUser(userId: string): ServerSubscription | null {
+  if (!userId) return null;
+  return serverSubscriptions[userId] || null;
+}
+
+function saveSubscriptionForUser(userId: string, sub: ServerSubscription) {
+  serverSubscriptions[userId] = sub;
+  saveSubscriptions(serverSubscriptions);
+}
+
+function getVariantIdForPlan(plan: PaidPlanType): string | null {
+  const envKey = SERVER_PLAN_CONFIG[plan]?.envVar;
+  const val = envKey ? process.env[envKey] : undefined;
+  return val ? val.trim() : null;
+}
+
+function getPlanFromVariantId(variantId: string | number): PaidPlanType | null {
+  const v = String(variantId).trim();
+  if (!v) return null;
+  for (const [key, conf] of Object.entries(SERVER_PLAN_CONFIG)) {
+    const envVal = process.env[conf.envVar]?.trim();
+    if (envVal && envVal === v) {
+      return key as PaidPlanType;
+    }
+  }
+  return null;
+}
+
+/**
+ * Middleware strict de protection : rejette les requêtes IA avec HTTP 402
+ * si l'utilisateur n'a pas un abonnement vérifié et actif sur le serveur.
+ */
+function requirePaidSubscription(req: Request, res: Response, next: NextFunction) {
+  const userId =
+    (req.headers["x-user-id"] as string) ||
+    (req.query.userId as string) ||
+    (req.body?.userId as string);
+
+  if (!userId) {
+    return res.status(401).json({
+      error: "Authentification requise : aucun identifiant utilisateur (x-user-id) fourni.",
+      paymentRequired: true,
+    });
+  }
+
+  const sub = getSubscriptionForUser(userId);
+  if (!sub || sub.status !== "active") {
+    return res.status(402).json({
+      error: "Paiement obligatoire : Votre compte n'a pas d'abonnement actif.",
+      paymentRequired: true,
+      currentStatus: sub ? sub.status : "unpaid",
+      message: "Veuillez souscrire à l'un des 3 forfaits (STARTER 9 900 FCFA, PRO 19 900 FCFA ou BUSINESS 49 000 FCFA) pour débloquer l'accès IA.",
+    });
+  }
+
+  (req as any).verifiedSubscription = sub;
+  next();
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: "10mb" }));
+  // Capture rawBody pour la vérification HMAC de signature Lemon Squeezy
+  app.use(
+    express.json({
+      limit: "10mb",
+      verify: (req: any, _res: Response, buf: Buffer) => {
+        req.rawBody = buf;
+      },
+    })
+  );
 
-  // API Routes
+  // API Health
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({
       status: "ok",
       hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+      hasLemonSqueezyKey: Boolean(process.env.LEMON_SQUEEZY_API_KEY),
+      hasStoreId: Boolean(process.env.LEMON_SQUEEZY_STORE_ID),
+      hasWebhookSecret: Boolean(process.env.LEMON_SQUEEZY_WEBHOOK_SECRET),
       models: TEXT_MODELS,
       time: new Date().toISOString(),
     });
   });
 
+  // Statut d'abonnement officiel et vérifié
+  app.get("/api/subscription/status", (req: Request, res: Response) => {
+    const userId =
+      (req.headers["x-user-id"] as string) ||
+      (req.query.userId as string);
+
+    const sub = userId ? getSubscriptionForUser(userId) : null;
+    const isPaid = Boolean(sub && sub.status === "active");
+
+    const starterVid = Boolean(process.env.LEMON_SQUEEZY_STARTER_VARIANT_ID?.trim());
+    const proVid = Boolean(process.env.LEMON_SQUEEZY_PRO_VARIANT_ID?.trim());
+    const businessVid = Boolean(process.env.LEMON_SQUEEZY_BUSINESS_VARIANT_ID?.trim());
+
+    res.json({
+      isPaid,
+      plan: isPaid && sub ? sub.plan : "free",
+      status: sub ? sub.status : "unpaid",
+      variantId: sub?.variantId,
+      activatedAt: sub?.activatedAt,
+      expiresAt: sub?.expiresAt,
+      orderId: sub?.orderId,
+      monthlyGenerations: isPaid && sub ? SERVER_PLAN_CONFIG[sub.plan].monthlyGenerations : 0,
+      hasLemonSqueezyConfig: Boolean(
+        process.env.LEMON_SQUEEZY_API_KEY?.trim() && process.env.LEMON_SQUEEZY_STORE_ID?.trim()
+      ),
+      configuredVariants: {
+        starter: starterVid,
+        pro: proVid,
+        business: businessVid,
+      },
+      prices: {
+        starter: "9 900 FCFA",
+        pro: "19 900 FCFA",
+        business: "49 000 FCFA",
+      },
+    });
+  });
+
+  // Création de session de paiement sécurisée Lemon Squeezy
+  app.post("/api/payments/lemonsqueezy/create-checkout", async (req: Request, res: Response) => {
+    try {
+      const { planId, userEmail, userName } = req.body;
+      const userId = (req.headers["x-user-id"] as string) || req.body?.userId;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Identifiant utilisateur (x-user-id) requis." });
+      }
+
+      if (!["starter", "pro", "business"].includes(planId)) {
+        return res.status(400).json({
+          error: "Forfait invalide. Choisissez entre 'starter', 'pro' ou 'business'.",
+        });
+      }
+
+      const planKey = planId as PaidPlanType;
+      const planConfig = SERVER_PLAN_CONFIG[planKey];
+      const variantId = getVariantIdForPlan(planKey);
+
+      const apiKey = process.env.LEMON_SQUEEZY_API_KEY?.trim();
+      const storeId = process.env.LEMON_SQUEEZY_STORE_ID?.trim();
+
+      const missingEnv: string[] = [];
+      if (!apiKey) missingEnv.push("LEMON_SQUEEZY_API_KEY");
+      if (!storeId) missingEnv.push("LEMON_SQUEEZY_STORE_ID");
+      if (!variantId) missingEnv.push(planConfig.envVar);
+
+      if (missingEnv.length > 0) {
+        return res.status(400).json({
+          error: `Le Variant ID Lemon Squeezy pour le forfait ${planConfig.name} n'est pas encore configuré sur le serveur.`,
+          requiresConfig: true,
+          missingEnv,
+          plan: planKey,
+          instructions: `Veuillez renseigner les variables d'environnement dans les paramètres : ${missingEnv.join(", ")}`,
+        });
+      }
+
+      const appOrigin = process.env.APP_URL || req.headers.origin || `http://localhost:${PORT}`;
+      const redirectUrl = `${appOrigin}/?payment_success=true&plan=${planKey}&uid=${userId}`;
+
+      const lsResponse = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.api+json",
+          "Content-Type": "application/vnd.api+json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          data: {
+            type: "checkouts",
+            attributes: {
+              checkout_data: {
+                email: userEmail || undefined,
+                name: userName || undefined,
+                custom: {
+                  user_id: userId,
+                  plan_id: planKey,
+                },
+              },
+              product_options: {
+                redirect_url: redirectUrl,
+              },
+            },
+            relationships: {
+              store: {
+                data: {
+                  type: "stores",
+                  id: String(storeId),
+                },
+              },
+              variant: {
+                data: {
+                  type: "variants",
+                  id: String(variantId),
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      const lsData = await lsResponse.json();
+
+      if (!lsResponse.ok) {
+        console.error("[Lemon Squeezy API] Checkout create error:", lsData);
+        const detail = lsData?.errors?.[0]?.detail || "Erreur de création du checkout Lemon Squeezy";
+        return res.status(lsResponse.status).json({
+          error: detail,
+          details: lsData,
+        });
+      }
+
+      const checkoutUrl = lsData?.data?.attributes?.url;
+      return res.json({
+        checkoutUrl,
+        plan: planKey,
+        variantId,
+        price: planConfig.price,
+        currency: planConfig.currency,
+      });
+    } catch (err: any) {
+      console.error("[Checkout] Erreur interne:", err);
+      return res.status(500).json({ error: err?.message || "Erreur serveur checkout" });
+    }
+  });
+
+  // Webhook Lemon Squeezy officiel sécurisé avec validation de signature HMAC-SHA256
+  app.post("/api/webhooks/lemonsqueezy", async (req: Request, res: Response) => {
+    try {
+      const webhookSecret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET?.trim();
+      if (!webhookSecret) {
+        console.warn("[Lemon Squeezy Webhook] LEMON_SQUEEZY_WEBHOOK_SECRET non configuré.");
+        return res.status(500).json({ error: "Webhook secret non configuré sur le serveur." });
+      }
+
+      const signature = req.get("X-Signature") || req.get("x-signature");
+      if (!signature) {
+        return res.status(401).json({ error: "Signature X-Signature manquante." });
+      }
+
+      const rawBody = (req as any).rawBody;
+      if (!rawBody) {
+        return res.status(400).json({ error: "rawBody indisponible pour vérification HMAC." });
+      }
+
+      const hmac = crypto.createHmac("sha256", webhookSecret);
+      const digest = Buffer.from(hmac.update(rawBody).digest("hex"), "utf8");
+      const expectedSig = Buffer.from(signature, "utf8");
+
+      if (digest.length !== expectedSig.length || !crypto.timingSafeEqual(digest, expectedSig)) {
+        console.error("[Lemon Squeezy Webhook] Signature HMAC invalide !");
+        return res.status(401).json({ error: "Signature HMAC invalide." });
+      }
+
+      const eventName = req.body?.meta?.event_name;
+      const customData = req.body?.meta?.custom_data || {};
+      const userId = customData.user_id;
+      const attributes = req.body?.data?.attributes || {};
+
+      const incomingVariantId =
+        attributes.first_order_item?.variant_id ||
+        attributes.variant_id ||
+        req.body?.data?.relationships?.variant?.data?.id;
+
+      console.log(`[Lemon Squeezy Webhook] Événement: ${eventName}, variantId: ${incomingVariantId}, userId: ${userId}`);
+
+      if (
+        eventName === "order_created" ||
+        eventName === "subscription_created" ||
+        eventName === "subscription_payment_success"
+      ) {
+        const verifiedPlan = getPlanFromVariantId(incomingVariantId);
+
+        if (!verifiedPlan) {
+          console.warn(`[Lemon Squeezy Webhook] Variant ID ${incomingVariantId} ne correspond à aucun forfait configuré.`);
+          return res.status(200).json({ received: true, warning: "Variant ID non reconnu" });
+        }
+
+        const targetUserId = userId || `user_ls_${attributes.customer_id || Date.now()}`;
+        const expiresDate = new Date();
+        expiresDate.setDate(expiresDate.getDate() + 31);
+
+        saveSubscriptionForUser(targetUserId, {
+          userId: targetUserId,
+          userEmail: attributes.user_email || attributes.customer_email,
+          userName: attributes.user_name || attributes.customer_name,
+          plan: verifiedPlan,
+          status: "active",
+          variantId: String(incomingVariantId),
+          orderId: String(attributes.order_number || attributes.identifier || ""),
+          subscriptionId: String(attributes.subscription_id || ""),
+          customerLemonSqueezyId: String(attributes.customer_id || ""),
+          amount: attributes.total || attributes.subtotal,
+          currency: attributes.currency || "FCFA",
+          activatedAt: new Date().toISOString(),
+          expiresAt: expiresDate.toISOString(),
+          lastVerifiedAt: new Date().toISOString(),
+        });
+
+        console.log(`[Lemon Squeezy Webhook] Forfait ${verifiedPlan.toUpperCase()} activé pour ${targetUserId}`);
+      }
+
+      if (
+        eventName === "subscription_cancelled" ||
+        eventName === "subscription_expired" ||
+        eventName === "subscription_payment_failed"
+      ) {
+        if (userId && serverSubscriptions[userId]) {
+          serverSubscriptions[userId].status = "expired";
+          saveSubscriptions(serverSubscriptions);
+          console.log(`[Lemon Squeezy Webhook] Abonnement expiré pour ${userId} -> accès IA coupé.`);
+        }
+      }
+
+      return res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error("[Lemon Squeezy Webhook] Erreur traitement:", err);
+      return res.status(500).json({ error: err?.message || "Erreur interne webhook" });
+    }
+  });
+
+  // Vérification de commande Lemon Squeezy en direct (fallback)
+  app.post("/api/payments/lemonsqueezy/verify-order", async (req: Request, res: Response) => {
+    try {
+      const { orderId, userId } = req.body;
+      const targetUserId = (req.headers["x-user-id"] as string) || userId;
+
+      if (!orderId || !targetUserId) {
+        return res.status(400).json({ error: "orderId et userId sont requis." });
+      }
+
+      const apiKey = process.env.LEMON_SQUEEZY_API_KEY?.trim();
+      if (!apiKey) {
+        return res.status(503).json({ error: "LEMON_SQUEEZY_API_KEY non configurée." });
+      }
+
+      const lsRes = await fetch(`https://api.lemonsqueezy.com/v1/orders/${orderId}`, {
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!lsRes.ok) {
+        return res.status(lsRes.status).json({ error: "Commande introuvable sur Lemon Squeezy." });
+      }
+
+      const orderData = await lsRes.json();
+      const status = orderData?.data?.attributes?.status;
+      const variantId = orderData?.data?.attributes?.first_order_item?.variant_id;
+
+      if (status === "paid") {
+        const plan = getPlanFromVariantId(variantId);
+        if (plan) {
+          saveSubscriptionForUser(targetUserId, {
+            userId: targetUserId,
+            userEmail: orderData?.data?.attributes?.user_email,
+            userName: orderData?.data?.attributes?.user_name,
+            plan,
+            status: "active",
+            variantId: String(variantId),
+            orderId: String(orderId),
+            activatedAt: new Date().toISOString(),
+            lastVerifiedAt: new Date().toISOString(),
+          });
+          return res.json({ success: true, plan });
+        }
+      }
+
+      return res.json({ success: false, status });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || "Erreur vérification commande" });
+    }
+  });
+
+  // Activation manuelle pour test / administration
+  app.post("/api/admin/subscription/manual-activate", async (req: Request, res: Response) => {
+    const { userId, plan, secret } = req.body;
+    const adminSecret = process.env.ADMIN_SECRET || "businessai_admin_secure";
+
+    if (secret !== adminSecret) {
+      return res.status(403).json({ error: "Accès refusé" });
+    }
+
+    if (!userId || !["starter", "pro", "business"].includes(plan)) {
+      return res.status(400).json({ error: "userId et plan ('starter'|'pro'|'business') requis." });
+    }
+
+    const planKey = plan as PaidPlanType;
+    const variantId = getVariantIdForPlan(planKey) || `manual_${planKey}`;
+
+    saveSubscriptionForUser(userId, {
+      userId,
+      plan: planKey,
+      status: "active",
+      variantId,
+      activatedAt: new Date().toISOString(),
+      lastVerifiedAt: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, message: `Forfait ${planKey.toUpperCase()} activé pour ${userId}` });
+  });
+
   // Single prompt content generation endpoint
-  app.post("/api/gemini/generate", async (req: Request, res: Response) => {
+  app.post("/api/gemini/generate", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { prompt, systemInstruction, temperature } = req.body;
 
@@ -243,7 +724,7 @@ async function startServer() {
   });
 
   // Multi-turn Chat endpoint
-  app.post("/api/gemini/chat", async (req: Request, res: Response) => {
+  app.post("/api/gemini/chat", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { messages, systemInstruction } = req.body;
 
@@ -279,7 +760,7 @@ async function startServer() {
   });
 
   // Streaming endpoint for real-time word-by-word token generation via SSE
-  app.post("/api/gemini/stream", async (req: Request, res: Response) => {
+  app.post("/api/gemini/stream", requirePaidSubscription, async (req: Request, res: Response) => {
     const { prompt, systemInstruction, temperature } = req.body;
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -343,7 +824,7 @@ async function startServer() {
   });
 
   // Image Generation Endpoint with Gemini Image Models
-  app.post("/api/gemini/generate-image", async (req: Request, res: Response) => {
+  app.post("/api/gemini/generate-image", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const {
         prompt,
@@ -452,7 +933,7 @@ async function startServer() {
   });
 
   // Video Generation Endpoint with Veo
-  app.post("/api/gemini/generate-video", async (req: Request, res: Response) => {
+  app.post("/api/gemini/generate-video", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { prompt, aspectRatio = "9:16", resolution = "720p" } = req.body;
 
@@ -499,7 +980,7 @@ async function startServer() {
   });
 
   // Video Status Polling Endpoint
-  app.post("/api/gemini/video-status", async (req: Request, res: Response) => {
+  app.post("/api/gemini/video-status", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { operationName } = req.body;
       if (!operationName) {
@@ -527,7 +1008,7 @@ async function startServer() {
   });
 
   // Video Download / Streaming Endpoint
-  app.post("/api/gemini/video-download", async (req: Request, res: Response) => {
+  app.post("/api/gemini/video-download", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { operationName } = req.body;
       if (!operationName) {
@@ -568,7 +1049,7 @@ async function startServer() {
   });
 
   // BusinessAI 2.0 - Orchestrator Endpoint (Brain & Multi-Agents)
-  app.post("/api/businessai/orchestrate", async (req: Request, res: Response) => {
+  app.post("/api/businessai/orchestrate", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { prompt, company, memory = [], files = [] } = req.body;
       if (!prompt || typeof prompt !== "string") {
@@ -658,7 +1139,7 @@ Donne une réponse structurée, pragmatique, vendeuse, directement applicable po
   });
 
   // BusinessAI 2.0 - Web Search Grounding Endpoint
-  app.post("/api/businessai/search", async (req: Request, res: Response) => {
+  app.post("/api/businessai/search", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { query } = req.body;
       if (!query) {
@@ -702,7 +1183,7 @@ Donne une réponse structurée, pragmatique, vendeuse, directement applicable po
   });
 
   // BusinessAI 2.0 - Multimodal File & Document Analyzer
-  app.post("/api/businessai/analyze-file", async (req: Request, res: Response) => {
+  app.post("/api/businessai/analyze-file", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
       const { fileBase64, fileName, mimeType, instruction } = req.body;
       const ai = getGenAI();

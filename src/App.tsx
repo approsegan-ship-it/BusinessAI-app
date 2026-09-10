@@ -29,10 +29,12 @@ import { EarnCreditsModal } from './components/EarnCreditsModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ReferralView } from './components/ReferralView';
 import { EarnCreditsView } from './components/EarnCreditsView';
+import { PaymentPaywallView } from './components/PaymentPaywallView';
 
 const AppContent: React.FC = () => {
   const {
     currentTab,
+    user,
     isPaymentModalOpen,
     setIsPaymentModalOpen,
     paymentPlan,
@@ -42,6 +44,8 @@ const AppContent: React.FC = () => {
     setIsCodeHubModalOpen,
   } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const isPaidUser = user.isPurchased && user.serverVerified && user.plan !== 'free';
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prev) => !prev);
@@ -87,15 +91,15 @@ const AppContent: React.FC = () => {
           {/* Dynamic Content View */}
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50/60">
             {currentTab === 'dashboard' && <Dashboard />}
-            {currentTab === 'assistant' && <AIAssistant />}
-            {currentTab === 'social' && <SocialGenerator />}
-            {currentTab === 'images' && <ImageGenerator />}
-            {currentTab === 'video' && <VideoGenerator />}
+            {currentTab === 'assistant' && (isPaidUser ? <AIAssistant /> : <PaymentPaywallView />)}
+            {currentTab === 'social' && (isPaidUser ? <SocialGenerator /> : <PaymentPaywallView />)}
+            {currentTab === 'images' && (isPaidUser ? <ImageGenerator /> : <PaymentPaywallView />)}
+            {currentTab === 'video' && (isPaidUser ? <VideoGenerator /> : <PaymentPaywallView />)}
             {currentTab === 'products' && <ProductCatalog />}
-            {currentTab === 'clients' && <CustomerResponses />}
+            {currentTab === 'clients' && (isPaidUser ? <CustomerResponses /> : <PaymentPaywallView />)}
             {currentTab === 'sales' && <SalesTools />}
             {currentTab === 'invoices' && <InvoiceGenerator />}
-            {currentTab === 'ai_calls' && <AICallingAgent />}
+            {currentTab === 'ai_calls' && (isPaidUser ? <AICallingAgent /> : <PaymentPaywallView />)}
             {currentTab === 'referrals' && <ReferralView />}
             {currentTab === 'earn_credits' && <EarnCreditsView />}
             {currentTab === 'history' && <HistoryView />}

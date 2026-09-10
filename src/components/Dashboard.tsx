@@ -31,6 +31,7 @@ import {
   Code2,
 } from 'lucide-react';
 import { AppTab } from '../types';
+import { PaymentPaywallView } from './PaymentPaywallView';
 
 export const Dashboard: React.FC = () => {
   const {
@@ -122,6 +123,12 @@ export const Dashboard: React.FC = () => {
       tab: 'referrals' as AppTab,
       badge: "+15 crédits / ami",
     });
+  }
+
+  const isPaidUser = user.isPurchased && user.serverVerified && user.plan !== 'free';
+
+  if (!isPaidUser) {
+    return <PaymentPaywallView />;
   }
 
   return (

@@ -26,6 +26,7 @@ export const PricingModal: React.FC = () => {
     setCurrentTab,
     displayCurrency,
     openPaymentModal,
+    startLemonSqueezyCheckout,
     addToast,
   } = useApp();
 
@@ -42,6 +43,12 @@ export const PricingModal: React.FC = () => {
     if (planId === 'free') {
       upgradePlan('free');
       setIsPricingModalOpen(false);
+      return;
+    }
+
+    if (planId === 'starter' || planId === 'pro' || planId === 'business') {
+      setIsPricingModalOpen(false);
+      startLemonSqueezyCheckout(planId);
       return;
     }
 
@@ -198,6 +205,12 @@ export const PricingModal: React.FC = () => {
                       ? 'Forfait Actif'
                       : isFree
                       ? 'Aperçu gratuit (Sans IA)'
+                      : plan.id === 'starter'
+                      ? 'Payer 9 900 FCFA'
+                      : plan.id === 'pro'
+                      ? 'Payer 19 900 FCFA'
+                      : plan.id === 'business'
+                      ? 'Payer 49 000 FCFA'
                       : `Payer & Activer ${plan.name}`}
                   </button>
                 </div>

@@ -6,6 +6,8 @@
  * UTILISATEUR -> ORCHESTRATEUR (Cerveau) -> AGENTS & OUTILS -> MÉMOIRE -> RÉPONSE FINALE
  */
 
+import { getAuthHeaders } from '../utils/userId';
+
 export interface AgentTask {
   id: string;
   title: string;
@@ -146,7 +148,7 @@ export async function runOrchestratorPipeline(params: {
   try {
     const res = await fetch('/api/businessai/orchestrate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         prompt: userInput,
         company: companyContext,
@@ -155,11 +157,19 @@ export async function runOrchestratorPipeline(params: {
       }),
     });
 
+    if (res.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
+
     if (res.ok) {
       const data = await res.json();
       return data;
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message?.includes('PAID_SUBSCRIPTION_REQUIRED')) throw err;
     console.warn('[Orchestrator] Fallback vers orchestration locale:', err);
   }
 

@@ -3,6 +3,8 @@
  * Conforme aux fonctionnalités 2, 3, 6 du plan d'architecture
  */
 
+import { getAuthHeaders } from '../utils/userId';
+
 // 1. RECHERCHE WEB (Web Search Grounding)
 export interface WebSearchResult {
   title: string;
@@ -19,13 +21,22 @@ export async function performWebSearch(query: string): Promise<{
   try {
     const res = await fetch('/api/businessai/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ query }),
     });
+
+    if (res.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
+
     if (res.ok) {
       return await res.json();
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message?.includes('PAID_SUBSCRIPTION_REQUIRED')) throw err;
     console.warn('[WebSearch] Fallback local:', err);
   }
 
@@ -58,13 +69,22 @@ export async function analyzeDocumentFile(params: {
   try {
     const res = await fetch('/api/businessai/analyze-file', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(params),
     });
+
+    if (res.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('businessai:payment_required'));
+      }
+      throw new Error("PAID_SUBSCRIPTION_REQUIRED: Paiement obligatoire avant toute utilisation de l'IA.");
+    }
+
     if (res.ok) {
       return await res.json();
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message?.includes('PAID_SUBSCRIPTION_REQUIRED')) throw err;
     console.warn('[FileAnalysis] Fallback local:', err);
   }
 
