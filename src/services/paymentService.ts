@@ -105,3 +105,47 @@ export async function verifyLemonSqueezyOrder(orderId: string): Promise<{
     };
   }
 }
+
+/**
+ * Validates an activation code on the server and unlocks subscription.
+ */
+export async function activateSubscriptionCode(
+  code: string,
+  userName?: string,
+  userEmail?: string
+): Promise<{
+  success: boolean;
+  plan?: UserPlan;
+  label?: string;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch('/api/subscription/activate-code', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        code,
+        userName,
+        userEmail,
+        userId: getClientUserId(),
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || `Code d'activation invalide (HTTP ${response.status})`,
+      };
+    }
+
+    return data;
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Impossible de contacter le serveur de validation.',
+    };
+  }
+}
+

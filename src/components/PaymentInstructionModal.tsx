@@ -15,6 +15,7 @@ import {
   ArrowRight,
   MessageSquare,
   AlertCircle,
+  KeyRound,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PlanId, PRICING_PLANS } from '../config/plans';
@@ -27,7 +28,7 @@ interface PaymentInstructionModalProps {
 }
 
 export const OFFICIAL_PAYMENT_NUMBER = '0163638893';
-export const OFFICIAL_PAYMENT_DISPLAY = '+225 01 63 63 88 93';
+export const OFFICIAL_PAYMENT_DISPLAY = '+229 01 63 63 88 93';
 
 export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = ({
   isOpen,
@@ -38,6 +39,7 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
     user,
     displayCurrency,
     upgradePlan,
+    submitActivationCode,
     openReceiptModal,
     addToast,
     addNotification,
@@ -51,6 +53,8 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
   const [senderName, setSenderName] = useState(user.name || '');
   const [senderPhone, setSenderPhone] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
+  const [secretCodeInput, setSecretCodeInput] = useState('');
+  const [isActivatingCode, setIsActivatingCode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -108,6 +112,17 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
   const handleCloseAfterSuccess = () => {
     setIsSuccess(false);
     onClose();
+  };
+
+  const handleSecretCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!secretCodeInput.trim()) return;
+    setIsActivatingCode(true);
+    const res = await submitActivationCode(secretCodeInput.trim());
+    setIsActivatingCode(false);
+    if (res.success) {
+      setIsSuccess(true);
+    }
   };
 
   return (
@@ -272,6 +287,33 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
                 </div>
               </div>
 
+              {/* Secret Code Quick Unlock */}
+              <div className="p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-200 space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-900">
+                  <KeyRound className="w-4 h-4 text-indigo-600" />
+                  <span>Vous avez déjà payé sur Lemon Squeezy ou WhatsApp ?</span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Entrez votre code d'activation reçu par email (Lemon Squeezy) ou sur WhatsApp pour débloquer votre compte immédiatement.
+                </p>
+                <form onSubmit={handleSecretCodeSubmit} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={secretCodeInput}
+                    onChange={(e) => setSecretCodeInput(e.target.value)}
+                    placeholder="Ex : 301e87b4... ou BAI-PRO-229"
+                    className="flex-1 px-3 py-2 rounded-xl border border-indigo-300 bg-white font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isActivatingCode || !secretCodeInput.trim()}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    {isActivatingCode ? 'Validation...' : "Débloquer l'IA"}
+                  </button>
+                </form>
+              </div>
+
               {/* Confirmation Form */}
               <form onSubmit={handleConfirmTransfer} className="space-y-4 pt-2 border-t border-slate-100">
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
@@ -312,7 +354,7 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
 
                 <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
                   <a
-                    href={`https://wa.me/2250163638893?text=${encodeURIComponent(
+                    href={`https://wa.me/2290163638893?text=${encodeURIComponent(
                       `Bonjour, je souhaite activer mon forfait ${currentPlan.name} (${formattedPrice}) sur BusinessAI.\nNom / Société : ${senderName || 'Client'}\nNuméro expéditeur : ${senderPhone || 'À préciser'}\nMoyen de paiement : ${activeMethod.toUpperCase()}\nBénéficiaire : ${OFFICIAL_PAYMENT_NUMBER}\nVoici ma confirmation de transfert.`
                     )}`}
                     target="_blank"

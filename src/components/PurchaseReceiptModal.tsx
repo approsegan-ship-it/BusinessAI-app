@@ -95,7 +95,7 @@ export const PurchaseReceiptModal: React.FC<PurchaseReceiptModalProps> = ({
     formattedAmount: user.plan === 'business' ? '49 000 FCFA' : user.plan === 'starter' ? '9 900 FCFA' : '19 900 FCFA',
     buyerName: user.name || company.name || 'Client BusinessAI',
     buyerEmail: user.email || 'client@businessai.app',
-    buyerPhone: company.whatsapp || company.phone || '+225 01 63 63 88 93',
+    buyerPhone: company.whatsapp || company.phone || '+229 01 63 63 88 93',
     paymentNumber: OFFICIAL_PAYMENT_NUMBER,
     paymentMethod: 'Wave / Mobile Money Direct',
     purchasedAt: new Date().toLocaleDateString('fr-FR', {

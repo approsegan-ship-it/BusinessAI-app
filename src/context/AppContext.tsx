@@ -44,6 +44,7 @@ import { OFFICIAL_PAYMENT_NUMBER } from '../components/PaymentInstructionModal';
 import {
   fetchServerSubscriptionStatus,
   createLemonSqueezyCheckout,
+  activateSubscriptionCode,
 } from '../services/paymentService';
 import { getClientUserId } from '../utils/userId';
 
@@ -87,6 +88,7 @@ interface AppContextType {
   isCheckoutLoading: boolean;
   startLemonSqueezyCheckout: (planId: 'starter' | 'pro' | 'business') => Promise<void>;
   refreshSubscriptionStatus: () => Promise<void>;
+  submitActivationCode: (code: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   upgradePlan: (
     plan: UserPlan,
     paymentDetails?: { senderName?: string; senderPhone?: string; transactionRef?: string }
@@ -632,6 +634,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await syncServerSubscription();
   };
 
+  const submitActivationCode = async (
+    code: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> => {
+    try {
+      const res = await activateSubscriptionCode(code, user.name, user.email);
+      if (res.success && res.plan) {
+        addToast('success', 'Forfait Débloqué !', res.message || 'Votre accès IA est maintenant actif.');
+        await syncServerSubscription();
+        return { success: true, message: res.message };
+      } else {
+        const errorMsg = res.error || "Code d'activation invalide.";
+        addToast('error', 'Code Rejeté', errorMsg);
+        return { success: false, error: errorMsg };
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Erreur lors de la validation du code.';
+      addToast('error', 'Connexion impossible', msg);
+      return { success: false, error: msg };
+    }
+  };
+
   const startLemonSqueezyCheckout = async (planId: 'starter' | 'pro' | 'business') => {
     setIsCheckoutLoading(true);
     try {
@@ -888,7 +911,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       formattedAmount: planConfig.formattedPrice,
       buyerName: paymentDetails?.senderName || user.name || company.name || 'Client BusinessAI',
       buyerEmail: user.email || 'client@businessai.app',
-      buyerPhone: paymentDetails?.senderPhone || company.whatsapp || company.phone || '+225 01 63 63 88 93',
+      buyerPhone: paymentDetails?.senderPhone || company.whatsapp || company.phone || '+229 01 63 63 88 93',
       paymentNumber: OFFICIAL_PAYMENT_NUMBER,
       paymentMethod: 'Wave / Mobile Money Direct (0163638893)',
       purchasedAt: new Date().toLocaleDateString('fr-FR', {
@@ -1211,6 +1234,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isCheckoutLoading,
         startLemonSqueezyCheckout,
         refreshSubscriptionStatus,
+        submitActivationCode,
         upgradePlan,
         consumeCredit,
         addBonusCredits,

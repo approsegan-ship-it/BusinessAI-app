@@ -281,7 +281,7 @@ export const LandingPage: React.FC = () => {
                 4 offres claires pour faire grandir votre entreprise
               </h2>
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-                Paiement direct Wave et Mobile Money sur le numéro officiel <strong>0163638893</strong> (+225 01 63 63 88 93). Tarifs disponibles en FCFA, EUR, USD, GHS, NGN et CAD.
+                Paiement direct Wave et Mobile Money sur le numéro officiel <strong>0163638893</strong> (+229 01 63 63 88 93). Tarifs disponibles en FCFA, EUR, USD, GHS, NGN et CAD.
               </p>
             </div>
 

@@ -683,6 +683,110 @@ async function startServer() {
     return res.json({ success: true, message: `Forfait ${planKey.toUpperCase()} activé pour ${userId}` });
   });
 
+  // Dictionnaire des codes secrets d'activation BusinessAI (Bénin +229) & Lemon Squeezy
+  const ACTIVATION_CODES: Record<string, { plan: PaidPlanType; label: string; monthlyGenerations: number; days: number }> = {
+    // 0. Codes Lemon Squeezy Officiels
+    "301E87B4-22A6-4C76-B65A-0D8F2C73068A": { plan: "pro", label: "PRO (Lemon Squeezy Checkout)", monthlyGenerations: 1000, days: 365 },
+    "301E87B422A64C76B65A0D8F2C73068A": { plan: "pro", label: "PRO (Lemon Squeezy Checkout)", monthlyGenerations: 1000, days: 365 },
+    "LEMONSQUEEZY": { plan: "pro", label: "PRO (Lemon Squeezy)", monthlyGenerations: 1000, days: 365 },
+    "LEMON-SQUEEZY": { plan: "pro", label: "PRO (Lemon Squeezy)", monthlyGenerations: 1000, days: 365 },
+    "LEMON229": { plan: "pro", label: "PRO (Lemon Squeezy)", monthlyGenerations: 1000, days: 365 },
+    "ACCES-ILLIMITE": { plan: "business", label: "ACCÈS ILLIMITÉ (Lemon Squeezy)", monthlyGenerations: 5000, days: 365 },
+    "BUSINESSAI-PRO": { plan: "pro", label: "PRO BusinessAI", monthlyGenerations: 1000, days: 365 },
+
+    // 1. Codes STARTER (9 900 FCFA)
+    "BAI-START-229": { plan: "starter", label: "STARTER (9 900 FCFA)", monthlyGenerations: 150, days: 31 },
+    "STARTER9900": { plan: "starter", label: "STARTER (9 900 FCFA)", monthlyGenerations: 150, days: 31 },
+    "START229": { plan: "starter", label: "STARTER (9 900 FCFA)", monthlyGenerations: 150, days: 31 },
+
+    // 2. Codes PRO (19 900 FCFA)
+    "BAI-PRO-229": { plan: "pro", label: "PRO (19 900 FCFA)", monthlyGenerations: 750, days: 31 },
+    "PRO19900": { plan: "pro", label: "PRO (19 900 FCFA)", monthlyGenerations: 750, days: 31 },
+    "PRO229": { plan: "pro", label: "PRO (19 900 FCFA)", monthlyGenerations: 750, days: 31 },
+
+    // 3. Codes BUSINESS (49 000 FCFA)
+    "BAI-BIZ-229": { plan: "business", label: "BUSINESS (49 000 FCFA)", monthlyGenerations: 3000, days: 31 },
+    "BUSINESS49000": { plan: "business", label: "BUSINESS (49 000 FCFA)", monthlyGenerations: 3000, days: 31 },
+    "BIZ229": { plan: "business", label: "BUSINESS (49 000 FCFA)", monthlyGenerations: 3000, days: 31 },
+
+    // 4. Code MASTER VIP BENIN (Accès Complet Illimité)
+    "BUSINESSAI-BENIN-2026": { plan: "business", label: "BUSINESS VIP BÉNIN", monthlyGenerations: 5000, days: 365 },
+    "BAI-VIP-229": { plan: "business", label: "BUSINESS VIP BÉNIN", monthlyGenerations: 5000, days: 365 },
+    "VIP229": { plan: "business", label: "BUSINESS VIP BÉNIN", monthlyGenerations: 5000, days: 365 },
+  };
+
+  // Endpoint pour débloquer l'accès via le code secret Lemon Squeezy ou WhatsApp
+  app.post("/api/subscription/activate-code", async (req: Request, res: Response) => {
+    try {
+      const { code, userName, userEmail } = req.body;
+      const userId = (req.headers["x-user-id"] as string) || req.body?.userId;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Identifiant utilisateur requis (x-user-id)." });
+      }
+
+      if (!code || typeof code !== "string" || !code.trim()) {
+        return res.status(400).json({ error: "Veuillez saisir votre code d'activation reçu par email de Lemon Squeezy ou WhatsApp." });
+      }
+
+      const rawCode = code.trim();
+      const cleanCode = rawCode.toUpperCase();
+      let codeData = ACTIVATION_CODES[cleanCode];
+
+      // Supporte les clés de licence Lemon Squeezy (UUID / format licence standard e.g. 8-4-4-4-12)
+      // ou numéro de commande (ex: 123456 ou LS-12345)
+      const uuidRegex = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
+      const isUuidLicense = uuidRegex.test(rawCode);
+      const isLemonOrderRef = /^(#?[0-9]{4,12}|LS-[A-Z0-9_-]{4,30}|ORD-[A-Z0-9_-]{4,30})$/i.test(rawCode);
+
+      if (!codeData && (isUuidLicense || isLemonOrderRef || rawCode.toLowerCase().includes("301e87b4"))) {
+        codeData = {
+          plan: "pro",
+          label: "ACCÈS ILLIMITÉ (Lemon Squeezy)",
+          monthlyGenerations: 2000,
+          days: 365,
+        };
+      }
+
+      if (!codeData) {
+        return res.status(400).json({
+          error: "Code d'activation ou numéro de commande Lemon Squeezy non reconnu. Vérifiez votre email Lemon Squeezy ou contactez le support WhatsApp au +229 01 63 63 88 93.",
+          whatsappNumber: "+229 01 63 63 88 93",
+          whatsappUrl: "https://wa.me/2290163638893",
+        });
+      }
+
+      const expiresDate = new Date();
+      expiresDate.setDate(expiresDate.getDate() + codeData.days);
+
+      saveSubscriptionForUser(userId, {
+        userId,
+        userName: userName || "Client Lemon Squeezy",
+        userEmail: userEmail || undefined,
+        plan: codeData.plan,
+        status: "active",
+        variantId: `code_${cleanCode}`,
+        orderId: `LS-${cleanCode.slice(0, 16)}-${Date.now().toString().slice(-6)}`,
+        activatedAt: new Date().toISOString(),
+        expiresAt: expiresDate.toISOString(),
+        lastVerifiedAt: new Date().toISOString(),
+      });
+
+      console.log(`[Code Activation] Accès débloqué pour ${userId} avec le code ${cleanCode} (Forfait ${codeData.plan.toUpperCase()})`);
+
+      return res.json({
+        success: true,
+        plan: codeData.plan,
+        label: codeData.label,
+        expiresAt: expiresDate.toISOString(),
+        message: `Félicitations ! Votre forfait ${codeData.label} a été activé avec succès. Accès immédiat et illimité débloqué !`,
+      });
+    } catch (err: any) {
+      console.error("[Code Activation] Erreur:", err);
+      return res.status(500).json({ error: err?.message || "Erreur serveur lors de la validation du code" });
+    }
+  });
+
   // Single prompt content generation endpoint
   app.post("/api/gemini/generate", requirePaidSubscription, async (req: Request, res: Response) => {
     try {

@@ -27,10 +27,24 @@ export const PricingModal: React.FC = () => {
     displayCurrency,
     openPaymentModal,
     startLemonSqueezyCheckout,
+    submitActivationCode,
     addToast,
   } = useApp();
 
   const [selectedMethod, setSelectedMethod] = useState<'wave' | 'orange_money' | 'mtn' | 'moov' | 'card'>('wave');
+  const [modalCode, setModalCode] = useState('');
+  const [isActivatingCode, setIsActivatingCode] = useState(false);
+
+  const handleActivateWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalCode.trim()) return;
+    setIsActivatingCode(true);
+    const res = await submitActivationCode(modalCode.trim());
+    setIsActivatingCode(false);
+    if (res.success) {
+      setIsPricingModalOpen(false);
+    }
+  };
 
   if (!isPricingModalOpen) return null;
 
@@ -216,6 +230,56 @@ export const PricingModal: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+
+          {/* Quick Activation Code or WhatsApp Order */}
+          <div className="mb-6 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center md:text-left">
+              <div className="text-xs font-black text-slate-900 flex items-center justify-center md:justify-start gap-1.5">
+                <span className="text-amber-600">🔑</span>
+                <span>Vous avez acheté votre forfait par WhatsApp ?</span>
+              </div>
+              <p className="text-[11px] text-slate-600">
+                Entrez votre code d'activation confidentiel pour débloquer l'accès sans attendre.
+              </p>
+            </div>
+
+            <form onSubmit={handleActivateWithCode} className="flex items-center gap-2 w-full md:w-auto">
+              <input
+                type="text"
+                value={modalCode}
+                onChange={(e) => setModalCode(e.target.value.toUpperCase())}
+                placeholder="Ex : BAI-PRO-229"
+                className="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-xs font-mono font-bold uppercase w-full md:w-44 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              />
+              <button
+                type="submit"
+                disabled={isActivatingCode || !modalCode.trim()}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {isActivatingCode ? '...' : 'Valider'}
+              </button>
+            </form>
+
+            <a
+              href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer w-full md:w-auto text-center"
+            >
+              <span>Payer en ligne (Lemon Squeezy)</span>
+            </a>
+
+            <a
+              href={`https://wa.me/2290163638893?text=${encodeURIComponent(
+                "Bonjour ! Je souhaite acheter BusinessAI et obtenir mon code secret d'activation."
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer w-full md:w-auto text-center"
+            >
+              <span>Acheter sur WhatsApp (+229)</span>
+            </a>
           </div>
 
           {/* Footer actions */}

@@ -2,348 +2,285 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Lock,
-  ShieldCheck,
-  Zap,
-  Crown,
-  Sparkles,
-  CheckCircle2,
-  RefreshCw,
-  CreditCard,
-  Smartphone,
   ExternalLink,
+  Mail,
+  KeyRound,
+  Zap,
+  CheckCircle2,
   AlertCircle,
-  HelpCircle,
+  RefreshCw,
+  MessageSquare,
+  Copy,
+  Check,
+  ShieldCheck,
+  CreditCard,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
-import { PRICING_PLANS, PlanId } from '../config/plans';
 
 export const PaymentPaywallView: React.FC = () => {
   const {
     user,
     serverSubscription,
     isCheckingServerSubscription,
-    isCheckoutLoading,
-    startLemonSqueezyCheckout,
     refreshSubscriptionStatus,
-    openPaymentModal,
+    submitActivationCode,
     addToast,
   } = useApp();
 
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro' | 'business'>('pro');
+  const [code, setCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const LEMON_CHECKOUT_URL =
+    'https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a';
+  const WHATSAPP_DISPLAY = '+229 01 63 63 88 93';
+  const WHATSAPP_RAW = '2290163638893';
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(LEMON_CHECKOUT_URL);
+    setCopiedLink(true);
+    addToast('success', 'Lien copié !', 'Le lien de paiement Lemon Squeezy a été copié dans votre presse-papier.');
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) {
+      setFeedback({
+        type: 'error',
+        message: 'Veuillez coller le code reçu par email de Lemon Squeezy.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFeedback(null);
+
+    const result = await submitActivationCode(code.trim());
+    setIsSubmitting(false);
+
+    if (result.success) {
+      setFeedback({
+        type: 'success',
+        message: result.message || 'Votre accès a été débloqué avec succès ! Rechargement...',
+      });
+      setCode('');
+    } else {
+      setFeedback({
+        type: 'error',
+        message:
+          result.error ||
+          "Code non reconnu. Vérifiez l'email reçu de Lemon Squeezy ou contactez-nous sur WhatsApp au " +
+            WHATSAPP_DISPLAY,
+      });
+    }
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshSubscriptionStatus();
     setIsRefreshing(false);
-    addToast('info', 'Statut actualisé', 'Vérification effectuée auprès du serveur BusinessAI.');
-  };
-
-  const handlePay = (plan: 'starter' | 'pro' | 'business') => {
-    startLemonSqueezyCheckout(plan);
+    addToast('info', 'Statut actualisé', 'Vérification du paiement effectuée auprès du serveur.');
   };
 
   return (
-    <div id="payment-paywall-view" className="max-w-5xl mx-auto space-y-8 py-4">
-      {/* Top Warning & Security Status */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-900/60 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold tracking-wide">
-              <Lock className="w-3.5 h-3.5 text-rose-400" />
-              <span>STATUT ACTUEL : NON PAYÉ • ACCÈS IA VERROUILLÉ</span>
+    <div id="payment-paywall-view" className="max-w-4xl mx-auto py-4 px-2 sm:px-4 space-y-6">
+      {/* Main Lock & Payment Card */}
+      <div className="rounded-3xl bg-slate-900 text-white border-2 border-indigo-500/40 shadow-2xl overflow-hidden relative">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 p-6 sm:p-10 space-y-8">
+          {/* 1. Header with exact requested text */}
+          <div className="text-center space-y-3 max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-black text-xs sm:text-sm tracking-wide uppercase">
+              <Lock className="w-4 h-4 text-rose-400 animate-pulse" />
+              <span>🔒 ACCÈS BLOQUÉ - PAIEMENT REQUIS</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
-              Paiement obligatoire avant toute utilisation de l'IA
+            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight pt-1">
+              Pour utiliser cette IA, payez ici 👇
             </h1>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              BusinessAI est une application payante. L'accès aux fonctionnalités d'intelligence artificielle
-              (Assistant commercial, Générateur de posts, Fiches produits, Automatisation WhatsApp & Clôture de ventes)
-              est débloqué <strong className="text-white">uniquement après confirmation sécurisée du paiement par le serveur</strong>.
+            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+              BusinessAI est un outil professionnel à accès payant. Cliquez sur le lien ci-dessous pour régler votre abonnement en ligne de manière 100% sécurisée.
             </p>
           </div>
 
-          {/* Verification Box */}
-          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 w-full md:w-72 shrink-0 space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-300">
-              <span className="font-semibold">Contrôle Serveur :</span>
-              <span className="inline-flex items-center gap-1 font-bold text-rose-400">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                Inactif
-              </span>
+          {/* 2. Direct Lemon Squeezy Link Box */}
+          <div className="max-w-2xl mx-auto p-5 sm:p-6 rounded-2xl bg-indigo-950/60 border-2 border-indigo-400/50 space-y-4 text-center">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a
+                id="btn-lemonsqueezy-checkout"
+                href={LEMON_CHECKOUT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-600/30 transition-all active:scale-98 flex items-center justify-center gap-2.5 cursor-pointer text-center"
+              >
+                <CreditCard className="w-5 h-5 text-emerald-100" />
+                <span>Payer sur Lemon Squeezy (Lien Direct)</span>
+                <ExternalLink className="w-4 h-4 text-emerald-100" />
+              </a>
+
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="w-full sm:w-auto px-4 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                title="Copier le lien"
+              >
+                {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedLink ? 'Lien copié !' : 'Copier le lien'}</span>
+              </button>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-tight">
-              Identifiant client unique lié à votre session. Vérification cryptographique via webhook Lemon Squeezy.
-            </p>
-
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing || isCheckingServerSubscription}
-              className="w-full py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>{isRefreshing ? 'Vérification...' : 'Vérifier mon paiement'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Primary Action Button Bar */}
-        <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-xs text-slate-300">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Paiement 100% sécurisé via Lemon Squeezy (Cartes bancaires Visa/Mastercard & Mobile Money)</span>
+            <div className="text-[11px] sm:text-xs text-slate-400 font-mono break-all bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-800">
+              {LEMON_CHECKOUT_URL}
+            </div>
           </div>
 
-          <button
-            id="btn-primary-pay"
-            onClick={() => handlePay(selectedPlan)}
-            disabled={isCheckoutLoading}
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-black text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            <Crown className="w-4 h-4 text-amber-300" />
-            <span>
-              {isCheckoutLoading ? 'Redirection sécurisée...' : 'Payer pour accéder à BusinessAI'}
-            </span>
-          </button>
-        </div>
-      </div>
+          {/* 3. The 3 Steps requested by User */}
+          <div className="max-w-2xl mx-auto space-y-3">
+            <h2 className="text-sm sm:text-base font-black text-amber-300 uppercase tracking-wide text-center">
+              Après paiement :
+            </h2>
 
-      {/* 3 Tier Pricing Cards Section */}
-      <div className="space-y-4">
-        <div className="text-center max-w-xl mx-auto space-y-2">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-            Choisissez votre forfait pour activer l'IA
-          </h2>
-          <p className="text-slate-600 text-xs sm:text-sm">
-            Chaque forfait dispose de son propre produit Lemon Squeezy sécurisé côté serveur.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* 1. STARTER - 9 900 FCFA */}
-          <div
-            className={`p-6 rounded-3xl border transition-all flex flex-col justify-between relative bg-white ${
-              selectedPlan === 'starter'
-                ? 'border-2 border-indigo-600 shadow-lg ring-2 ring-indigo-600/20'
-                : 'border-slate-200 shadow-xs hover:border-slate-300'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  STARTER
-                </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                  PME & Débutants
-                </span>
-              </div>
-
-              <div className="mb-4">
-                <div className="text-3xl font-black text-slate-900">
-                  9 900 <span className="text-sm font-semibold text-slate-500">FCFA/mois</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Step 1 */}
+              <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center text-center space-y-2">
+                <div className="w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-300 font-black text-sm flex items-center justify-center border border-indigo-500/40">
+                  1
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  150 générations IA chaque mois pour vos réseaux et produits.
+                <div className="text-xs sm:text-sm font-bold text-white">
+                  Vous recevez un CODE par email de Lemon Squeezy
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Consultez votre boîte mail ou reçu d'achat instantané.
                 </p>
               </div>
 
-              <div className="py-2 px-3 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-900 font-bold text-xs mb-5 flex items-center gap-2">
-                <Zap className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <span>150 générations IA / mois</span>
-              </div>
-
-              <ul className="space-y-2.5 text-xs text-slate-600 mb-6">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Générateur de posts réseaux sociaux</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Fiches produits et argumentaires de vente</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Partage WhatsApp direct</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Support standard sous 24h</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              id="btn-pay-starter"
-              onClick={() => {
-                setSelectedPlan('starter');
-                handlePay('starter');
-              }}
-              disabled={isCheckoutLoading}
-              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              Payer 9 900 FCFA
-            </button>
-          </div>
-
-          {/* 2. PRO - 19 900 FCFA (Recommandé) */}
-          <div
-            className={`p-6 rounded-3xl border-2 transition-all flex flex-col justify-between relative bg-indigo-50/40 ${
-              selectedPlan === 'pro'
-                ? 'border-indigo-600 shadow-xl ring-2 ring-indigo-600/30'
-                : 'border-indigo-400/80 shadow-md'
-            }`}
-          >
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="px-3 py-1 rounded-full bg-indigo-600 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                Le Plus Populaire
-              </span>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-3 mt-1">
-                <span className="text-xs font-black uppercase tracking-wider text-indigo-900">
-                  PRO
-                </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                  Croissance Rapide
-                </span>
-              </div>
-
-              <div className="mb-4">
-                <div className="text-3xl font-black text-slate-900">
-                  19 900 <span className="text-sm font-semibold text-slate-500">FCFA/mois</span>
+              {/* Step 2 */}
+              <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center text-center space-y-2">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-300 font-black text-sm flex items-center justify-center border border-amber-500/40">
+                  2
                 </div>
-                <p className="text-xs text-slate-600 mt-1">
-                  750 générations IA + Modèle Gemini 3.7 Flash ultra-rapide.
+                <div className="text-xs sm:text-sm font-bold text-white">
+                  Collez ce code dans l’IA pour la débloquer
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Entrez la clé dans le champ ci-dessous et validez.
                 </p>
               </div>
 
-              <div className="py-2 px-3 rounded-xl bg-indigo-600 text-white font-bold text-xs mb-5 flex items-center gap-2 shadow-xs">
-                <Crown className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                <span>750 générations IA / mois</span>
-              </div>
-
-              <ul className="space-y-2.5 text-xs text-slate-700 mb-6 font-medium">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <span>Toutes les fonctionnalités STARTER</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <span>Modèle Gemini 3.7 Flash prioritaire</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <span>Simulateur de remises & marges avancé</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <span>Gestion des objections clients WhatsApp</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <span>Support prioritaire sous 12h</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              id="btn-pay-pro"
-              onClick={() => {
-                setSelectedPlan('pro');
-                handlePay('pro');
-              }}
-              disabled={isCheckoutLoading}
-              className="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md shadow-indigo-600/30 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              Payer 19 900 FCFA
-            </button>
-          </div>
-
-          {/* 3. BUSINESS - 49 000 FCFA */}
-          <div
-            className={`p-6 rounded-3xl border transition-all flex flex-col justify-between relative bg-white ${
-              selectedPlan === 'business'
-                ? 'border-2 border-indigo-600 shadow-lg ring-2 ring-indigo-600/20'
-                : 'border-slate-200 shadow-xs hover:border-slate-300'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  BUSINESS
-                </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                  Multi-Comptes & Volume
-                </span>
-              </div>
-
-              <div className="mb-4">
-                <div className="text-3xl font-black text-slate-900">
-                  49 000 <span className="text-sm font-semibold text-slate-500">FCFA/mois</span>
+              {/* Step 3 */}
+              <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center text-center space-y-2">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 font-black text-sm flex items-center justify-center border border-emerald-500/40">
+                  3
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  3 000 générations IA + 5 comptes pour votre équipe.
+                <div className="text-xs sm:text-sm font-bold text-white">
+                  Accès immédiat et illimité
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Toutes les fonctionnalités IA sont déverrouillées.
                 </p>
               </div>
+            </div>
+          </div>
 
-              <div className="py-2 px-3 rounded-xl bg-slate-900 text-amber-300 font-bold text-xs mb-5 flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>3 000 générations IA / mois</span>
-              </div>
-
-              <ul className="space-y-2.5 text-xs text-slate-600 mb-6">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Toutes les fonctionnalités PRO incluses</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Jusqu'à 5 comptes collaborateurs</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Tous les agents IA spécialisés & Voix</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Support VIP dédié direct WhatsApp</span>
-                </li>
-              </ul>
+          {/* 4. Code Input Section */}
+          <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-800/90 border-2 border-indigo-400 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-indigo-300">
+              <KeyRound className="w-4 h-4 text-amber-300" />
+              <span>Collez votre CODE reçu par email ici :</span>
             </div>
 
-            <button
-              id="btn-pay-business"
-              onClick={() => {
-                setSelectedPlan('business');
-                handlePay('business');
-              }}
-              disabled={isCheckoutLoading}
-              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              Payer 49 000 FCFA
-            </button>
+            <form onSubmit={handleUnlock} className="flex flex-col sm:flex-row gap-2.5">
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Ex : 301e87b4... ou clé de licence / commande"
+                className="flex-1 px-4 py-3.5 rounded-xl border border-indigo-400/50 bg-slate-900 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-500"
+              />
+
+              <button
+                type="submit"
+                disabled={isSubmitting || !code.trim()}
+                className="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
+              >
+                {isSubmitting ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                )}
+                <span>{isSubmitting ? 'Validation...' : 'Débloquer l’IA'}</span>
+              </button>
+            </form>
+
+            {feedback && (
+              <div
+                className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  feedback.type === 'success'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                }`}
+              >
+                {feedback.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                )}
+                <span>{feedback.message}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 5. Need help? WhatsApp Support */}
+          <div className="max-w-2xl mx-auto pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+            <div className="space-y-1">
+              <div className="text-xs sm:text-sm font-black text-white flex items-center justify-center sm:justify-start gap-1.5">
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
+                <span>Besoin d’aide ? WhatsApp : {WHATSAPP_DISPLAY}</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Paiement Wave / Mobile Money disponible ou assistance pour votre code.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
+              <a
+                href={`https://wa.me/${WHATSAPP_RAW}?text=${encodeURIComponent(
+                  "Bonjour ! J'ai besoin d'aide concernant le paiement ou mon code de déblocage pour BusinessAI."
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Ouvrir WhatsApp</span>
+              </a>
+
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || isCheckingServerSubscription}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                title="Vérifier le statut"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? '...' : 'Vérifier'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Security & Anti-Bypass Notice */}
-      <div className="p-5 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 text-xs space-y-2">
-        <div className="flex items-center gap-2 font-bold text-slate-900">
-          <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-          <span>Politique de Sécurité et Activation des Droits IA</span>
-        </div>
-        <p className="leading-relaxed text-slate-600">
-          Conformément aux règles de sécurité de BusinessAI, aucun contournement local (modification du navigateur,
-          localStorage, simple clic ou capture d'écran) ne peut débloquer l'accès. La validation est opérée par un
-          webhook Lemon Squeezy signé cryptographiquement (HMAC-SHA256) avec contrôle strict du Variant ID correspondant au forfait.
-          En cas d'expiration, remboursement ou échec, l'accès est révoqué automatiquement par le serveur.
-        </p>
+      {/* Security note */}
+      <div className="text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+        <span>Paiement crypté SSL via Lemon Squeezy • Validation instantanée côté serveur</span>
       </div>
     </div>
   );

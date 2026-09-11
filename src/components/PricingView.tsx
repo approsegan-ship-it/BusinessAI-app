@@ -21,6 +21,10 @@ import {
   ChevronDown,
   ChevronUp,
   Coins,
+  KeyRound,
+  Send,
+  MessageSquare,
+  CreditCard,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { formatPriceWithCurrency, SUPPORTED_CURRENCIES, CurrencyCode } from '../config/currency';
@@ -33,12 +37,15 @@ export const PricingView: React.FC = () => {
     setDisplayCurrency,
     openPaymentModal,
     startLemonSqueezyCheckout,
+    submitActivationCode,
     addToast,
     t,
   } = useApp();
 
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [activationCodeInput, setActivationCodeInput] = useState('');
+  const [isActivating, setIsActivating] = useState(false);
 
   const currentPlanConfig = getPlanConfig(user.plan);
 
@@ -47,6 +54,15 @@ export const PricingView: React.FC = () => {
     setCopied(true);
     addToast('success', 'Numéro copié !', `Numéro ${OFFICIAL_PAYMENT_NUMBER} copié dans le presse-papier.`);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleActivateCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activationCodeInput.trim()) return;
+    setIsActivating(true);
+    await submitActivationCode(activationCodeInput.trim());
+    setIsActivating(false);
+    setActivationCodeInput('');
   };
 
   const handleSelectPlan = (planId: PlanId) => {
@@ -64,7 +80,7 @@ export const PricingView: React.FC = () => {
   const faqs = [
     {
       q: 'Comment payer et envoyer l’argent pour activer l’IA ?',
-      a: `Vous pouvez envoyer votre paiement par Wave, Orange Money, MTN MoMo ou Moov Money au numéro officiel ${OFFICIAL_PAYMENT_NUMBER} (+225 01 63 63 88 93). Votre compte est débloqué immédiatement après confirmation.`,
+      a: `Vous pouvez envoyer votre paiement par Wave, Orange Money, MTN MoMo ou Moov Money au numéro officiel ${OFFICIAL_PAYMENT_NUMBER} (+229 01 63 63 88 93). Votre compte est débloqué immédiatement après confirmation ou saisie de votre code d'activation.`,
     },
     {
       q: 'Est-il possible de payer dans d’autres devises (EUR, USD, GHS, NGN, CAD) ?',
@@ -176,6 +192,64 @@ export const PricingView: React.FC = () => {
             <Phone className="w-4 h-4" />
             <span>Payer & Débloquer l'IA</span>
           </button>
+        </div>
+      </div>
+
+      {/* WhatsApp Secret Code Unlock Form */}
+      <div className="p-6 rounded-3xl bg-indigo-50/80 border-2 border-indigo-200/80 flex flex-col md:flex-row items-center justify-between gap-5 shadow-xs">
+        <div className="space-y-1 text-center md:text-left max-w-lg">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider">
+            <KeyRound className="w-3.5 h-3.5 text-amber-300" />
+            <span>Déblocage par Code Secret WhatsApp</span>
+          </div>
+          <h3 className="text-base sm:text-lg font-black text-slate-900">
+            Vous avez acheté votre forfait au +229 01 63 63 88 93 ?
+          </h3>
+          <p className="text-xs text-slate-600">
+            Saisissez le code d'activation fourni par l'administrateur pour débloquer immédiatement votre forfait.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+          <form onSubmit={handleActivateCode} className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="text"
+              value={activationCodeInput}
+              onChange={(e) => setActivationCodeInput(e.target.value.toUpperCase())}
+              placeholder="Ex : BAI-PRO-229"
+              className="px-4 py-2.5 rounded-xl border border-indigo-300 bg-white font-mono font-bold text-xs uppercase w-full sm:w-44 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            />
+            <button
+              type="submit"
+              disabled={isActivating || !activationCodeInput.trim()}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              {isActivating ? <Send className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              <span>{isActivating ? 'Validation...' : 'Débloquer'}</span>
+            </button>
+          </form>
+
+          <a
+            href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer w-full sm:w-auto justify-center text-center"
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Payer sur Lemon Squeezy</span>
+          </a>
+
+          <a
+            href={`https://wa.me/2290163638893?text=${encodeURIComponent(
+              "Bonjour ! Je souhaite commander BusinessAI et obtenir mon code d'activation secret."
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer w-full sm:w-auto justify-center text-center"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>WhatsApp (+229)</span>
+          </a>
         </div>
       </div>
 
