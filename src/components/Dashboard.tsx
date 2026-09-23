@@ -145,7 +145,7 @@ export const Dashboard: React.FC = () => {
                 Paiement requis pour utiliser l'IA générative BusinessAI
               </h3>
               <p className="text-xs text-slate-600">
-                Vos fonctionnalités d'IA sont verrouillées. Envoyez votre paiement au <strong>0163638893</strong> ou souscrivez à un forfait dès <strong>{formatMoney(4900)}/mois</strong>.
+                Vos fonctionnalités d'IA sont verrouillées. Souscrivez à un forfait en ligne sur Lemon Squeezy dès <strong>{formatMoney(4900)}/mois</strong>.
               </p>
             </div>
           </div>
@@ -153,7 +153,7 @@ export const Dashboard: React.FC = () => {
             onClick={() => openPaymentModal('starter')}
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
           >
-            Payer au 0163638893 & Débloquer l'IA
+            Payer & Débloquer l'IA
           </button>
         </div>
       )}

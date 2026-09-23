@@ -21,6 +21,7 @@ import {
   Phone,
   Receipt,
   PhoneCall,
+  CreditCard,
 } from 'lucide-react';
 import { OFFICIAL_PAYMENT_NUMBER } from './PaymentInstructionModal';
 
@@ -266,26 +267,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             </span>
           </button>
 
-          {/* Direct Pay 0163638893 Button */}
-          <button
-            onClick={() => openPaymentModal('starter')}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 transition-all group cursor-pointer text-left shadow-2xs"
+          {/* Lemon Squeezy Payment Link */}
+          <a
+            href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 transition-all group cursor-pointer text-left shadow-2xs"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-2xs font-bold">
-                <Phone className="w-4 h-4" />
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold">
+                <CreditCard className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-bold text-xs text-amber-950 leading-tight">
-                  Payer au {OFFICIAL_PAYMENT_NUMBER}
+                <div className="font-bold text-xs text-emerald-950 leading-tight">
+                  Payer en ligne
                 </div>
-                <div className="text-[10px] text-amber-800 truncate">Wave, Orange, MTN, Moov</div>
+                <div className="text-[10px] text-emerald-800 truncate">Lemon Squeezy sécurisé</div>
               </div>
             </div>
-            <span className="text-[9px] font-extrabold bg-amber-300 text-amber-950 px-1.5 py-0.5 rounded-md">
-              Activer
+            <span className="text-[9px] font-extrabold bg-emerald-300 text-emerald-950 px-1.5 py-0.5 rounded-md">
+              Payer
             </span>
-          </button>
+          </a>
         </div>
       </div>
 
@@ -359,8 +362,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 : 'bg-slate-900 hover:bg-slate-800 text-white'
             }`}
           >
-            <Phone className="w-3.5 h-3.5 text-amber-300" />
-            <span>{isFree ? 'Payer au 0163638893' : 'Prolonger / Changer'}</span>
+            <CreditCard className="w-3.5 h-3.5 text-amber-300" />
+            <span>{isFree ? 'Débloquer l’IA' : 'Prolonger / Changer'}</span>
           </button>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Lock,
   Code2,
+  CreditCard,
 } from 'lucide-react';
 import { NotificationCenter } from './NotificationCenter';
 import { SUPPORTED_LANGUAGES } from '../i18n/translations';
@@ -79,15 +80,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Area: Payment + Language + Currency + Plan + Notifications + Account */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Quick Send Money to 0163638893 button */}
-            <button
-              onClick={() => openPaymentModal('starter')}
-              title={`Payer et transférer sur le numéro officiel ${OFFICIAL_PAYMENT_NUMBER}`}
+            {/* Quick Lemon Squeezy Payment button */}
+            <a
+              href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Payer en ligne via Lemon Squeezy"
               className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
             >
-              <Phone className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Payer : <strong>{OFFICIAL_PAYMENT_NUMBER}</strong></span>
-            </button>
+              <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Payer en ligne</span>
+            </a>
 
             {/* Language Switcher Dropdown */}
             <div className="relative">
@@ -212,11 +215,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               {!user.isPurchased || user.plan === 'free' ? (
                 <button
                   onClick={() => openPaymentModal('starter')}
-                  title="Effectuez votre règlement au 0163638893 pour activer l'IA"
+                  title="Effectuez votre règlement pour activer l'IA"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-md cursor-pointer active:scale-95 animate-pulse"
                 >
                   <Lock className="w-3.5 h-3.5 text-amber-200" />
-                  <span>PAYER L'ACCÈS (0163638893)</span>
+                  <span>PAYER L'ACCÈS</span>
                 </button>
               ) : (
                 <button

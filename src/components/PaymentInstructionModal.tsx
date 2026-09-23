@@ -1,25 +1,22 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  Phone,
+  Lock,
+  ExternalLink,
+  KeyRound,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  MessageSquare,
   Copy,
   Check,
-  Smartphone,
   ShieldCheck,
+  CreditCard,
   Sparkles,
   X,
-  CreditCard,
-  Send,
-  CheckCircle2,
-  Lock,
-  ArrowRight,
-  MessageSquare,
-  AlertCircle,
-  KeyRound,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PlanId, PRICING_PLANS } from '../config/plans';
-import { formatPriceWithCurrency } from '../config/currency';
 
 interface PaymentInstructionModalProps {
   isOpen: boolean;
@@ -35,423 +32,230 @@ export const PaymentInstructionModal: React.FC<PaymentInstructionModalProps> = (
   onClose,
   preselectedPlan = 'starter',
 }) => {
-  const {
-    user,
-    displayCurrency,
-    upgradePlan,
-    submitActivationCode,
-    openReceiptModal,
-    addToast,
-    addNotification,
-    t,
-  } = useApp();
+  const { submitActivationCode, addToast, refreshSubscriptionStatus } = useApp();
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>(
-    preselectedPlan === 'free' ? 'starter' : preselectedPlan
-  );
-  const [activeMethod, setActiveMethod] = useState<'wave' | 'orange' | 'mtn' | 'moov' | 'card'>('wave');
-  const [senderName, setSenderName] = useState(user.name || '');
-  const [senderPhone, setSenderPhone] = useState('');
-  const [transactionRef, setTransactionRef] = useState('');
-  const [secretCodeInput, setSecretCodeInput] = useState('');
-  const [isActivatingCode, setIsActivatingCode] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [isActivating, setIsActivating] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [code, setCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const LEMON_CHECKOUT_URL =
+    'https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a';
+  const WHATSAPP_DISPLAY = '+229 01 63 63 88 93';
+  const WHATSAPP_RAW = '2290163638893';
 
   if (!isOpen) return null;
 
-  const currentPlan = PRICING_PLANS[selectedPlan] || PRICING_PLANS.starter;
-  const formattedPrice = formatPriceWithCurrency(currentPlan.price, displayCurrency);
-
-  const handleCopyNumber = () => {
-    navigator.clipboard.writeText(OFFICIAL_PAYMENT_NUMBER);
-    setCopied(true);
-    addToast('success', 'Numéro copié !', `Numéro ${OFFICIAL_PAYMENT_NUMBER} copié dans le presse-papier.`);
-    setTimeout(() => setCopied(false), 2500);
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(LEMON_CHECKOUT_URL);
+    setCopiedLink(true);
+    addToast('success', 'Lien copié !', 'Le lien de paiement Lemon Squeezy a été copié.');
+    setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const handleConfirmTransfer = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!senderPhone.trim()) {
-      addToast(
-        'error',
-        'Numéro émetteur obligatoire',
-        'Veuillez saisir votre numéro de téléphone ou la référence du transfert vers le 0163638893 afin de valider votre achat.'
-      );
+    if (!code.trim()) {
+      setFeedback({
+        type: 'error',
+        message: 'Veuillez coller le code reçu par email de Lemon Squeezy.',
+      });
       return;
     }
 
-    setIsActivating(true);
+    setIsSubmitting(true);
+    setFeedback(null);
 
-    setTimeout(() => {
-      upgradePlan(selectedPlan, {
-        senderName: senderName.trim() || 'Client BusinessAI',
-        senderPhone: senderPhone.trim(),
-        transactionRef: transactionRef.trim() || `TRX-${OFFICIAL_PAYMENT_NUMBER}-${Date.now().toString().slice(-6)}`,
+    const result = await submitActivationCode(code.trim());
+    setIsSubmitting(false);
+
+    if (result.success) {
+      setFeedback({
+        type: 'success',
+        message: result.message || 'Votre accès a été débloqué avec succès !',
       });
-      setIsActivating(false);
-      setIsSuccess(true);
-
-      addNotification(
-        'credit',
-        'Paiement validé avec succès !',
-        `Votre forfait ${currentPlan.name} a été activé suite au transfert vers le ${OFFICIAL_PAYMENT_NUMBER}. Profitez de vos ${currentPlan.monthlyGenerations} générations IA !`,
-        'dashboard'
-      );
-
-      addToast(
-        'success',
-        `Forfait ${currentPlan.name} activé !`,
-        `Paiement au ${OFFICIAL_PAYMENT_NUMBER} confirmé. Vos générations IA sont maintenant débloquées.`
-      );
-    }, 800);
-  };
-
-  const handleCloseAfterSuccess = () => {
-    setIsSuccess(false);
-    onClose();
-  };
-
-  const handleSecretCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!secretCodeInput.trim()) return;
-    setIsActivatingCode(true);
-    const res = await submitActivationCode(secretCodeInput.trim());
-    setIsActivatingCode(false);
-    if (res.success) {
-      setIsSuccess(true);
+      setCode('');
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } else {
+      setFeedback({
+        type: 'error',
+        message:
+          result.error ||
+          "Code non reconnu. Vérifiez l'email reçu de Lemon Squeezy ou contactez-nous sur WhatsApp au " +
+            WHATSAPP_DISPLAY,
+      });
     }
   };
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-2xl overflow-hidden text-slate-900 my-6 max-h-[92vh] overflow-y-auto"
+          className="relative w-full max-w-2xl bg-slate-900 border-2 border-indigo-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl text-white my-6 max-h-[92vh] overflow-y-auto"
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
 
-          {!isSuccess ? (
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="text-center max-w-md mx-auto">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Transfert Mobile Money & Wave</span>
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Envoyer l'argent au {OFFICIAL_PAYMENT_NUMBER}
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                  Transférez le montant de votre forfait sur le numéro officiel pour débloquer votre IA instantanément.
-                </p>
-
-                {/* Price Lock Guaranteed Banner */}
-                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold">
-                  <Lock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Prix Garanti Bloqué à Vie : Aucune augmentation future</span>
-                </div>
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="text-center space-y-2.5 max-w-md mx-auto">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-black text-xs uppercase tracking-wide">
+                <Lock className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                <span>🔒 ACCÈS BLOQUÉ - PAIEMENT REQUIS</span>
               </div>
 
-              {/* Plan selector pills */}
-              <div className="grid grid-cols-3 gap-2">
-                {(['starter', 'pro', 'business'] as PlanId[]).map((pid) => {
-                  const p = PRICING_PLANS[pid];
-                  const isSelected = selectedPlan === pid;
-                  return (
-                    <button
-                      key={pid}
-                      type="button"
-                      onClick={() => setSelectedPlan(pid)}
-                      className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-600/30'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="text-xs font-extrabold uppercase text-slate-900">{p.name}</div>
-                      <div className="text-xs font-bold text-indigo-600 mt-0.5">
-                        {formatPriceWithCurrency(p.price, displayCurrency)}
-                      </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{p.monthlyGenerations} gén.</div>
-                    </button>
-                  );
-                })}
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                Pour utiliser cette IA, payez ici 👇
+              </h2>
+
+              <p className="text-xs sm:text-sm text-slate-300">
+                Abonnement sécurisé en ligne par carte bancaire ou paiement international via Lemon Squeezy.
+              </p>
+            </div>
+
+            {/* Direct Lemon Squeezy Checkout Link */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-indigo-950/60 border border-indigo-400/40 space-y-3 text-center">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                <a
+                  href={LEMON_CHECKOUT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-600/30 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer text-center"
+                >
+                  <CreditCard className="w-4 h-4 text-emerald-100" />
+                  <span>Payer sur Lemon Squeezy</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-100" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="w-full sm:w-auto px-4 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedLink ? 'Lien copié !' : 'Copier le lien'}</span>
+                </button>
               </div>
 
-              {/* Number Card to Send Money */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-indigo-900 shadow-md">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider block">
-                      Numéro de Réception Officiel :
-                    </span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Phone className="w-5 h-5 text-amber-400" />
-                      <span className="text-2xl sm:text-3xl font-black tracking-wider text-amber-300">
-                        {OFFICIAL_PAYMENT_NUMBER}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-300 mt-1 block">
-                      Nom du compte : <strong>BusinessAI / Approsegan</strong> ({OFFICIAL_PAYMENT_DISPLAY})
-                    </span>
+              <div className="text-[11px] text-slate-400 font-mono break-all bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                {LEMON_CHECKOUT_URL}
+              </div>
+            </div>
+
+            {/* The 3 Steps */}
+            <div className="space-y-2">
+              <h3 className="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-wide text-center">
+                Après paiement :
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-center space-y-1">
+                  <div className="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-300 font-black text-xs flex items-center justify-center mx-auto border border-indigo-500/40">
+                    1
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyNumber}
-                    className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
-                  >
-                    {copied ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
-                    <span>{copied ? 'Numéro Copié !' : 'Copier 0163638893'}</span>
-                  </button>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="text-slate-300">Montant à envoyer pour {currentPlan.name} :</span>
-                  <span className="font-extrabold text-amber-300 text-sm">{formattedPrice}</span>
-                </div>
-              </div>
-
-              {/* Step by step guides per operator */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                    Moyen de transfert :
-                  </span>
-                  <div className="flex gap-1.5 overflow-x-auto">
-                    {[
-                      { id: 'wave', label: 'Wave' },
-                      { id: 'orange', label: 'Orange Money' },
-                      { id: 'mtn', label: 'MTN MoMo' },
-                      { id: 'moov', label: 'Moov' },
-                    ].map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setActiveMethod(m.id as any)}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          activeMethod === m.id
-                            ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
+                  <div className="text-xs font-bold text-white">
+                    Vous recevez un CODE par email de Lemon Squeezy
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
-                  {activeMethod === 'wave' && (
-                    <>
-                      <p className="font-semibold text-slate-900">Transfert direct Wave (0% de frais) :</p>
-                      <p>1. Ouvrez l'application <strong>Wave</strong> sur votre téléphone.</p>
-                      <p>2. Cliquez sur <strong>« Transférer »</strong> et entrez le <strong>0163638893</strong>.</p>
-                      <p>3. Entrez le montant : <strong>{formattedPrice}</strong> et validez.</p>
-                    </>
+                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-center space-y-1">
+                  <div className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 font-black text-xs flex items-center justify-center mx-auto border border-amber-500/40">
+                    2
+                  </div>
+                  <div className="text-xs font-bold text-white">
+                    Collez ce code dans l’IA pour la débloquer
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-center space-y-1">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-300 font-black text-xs flex items-center justify-center mx-auto border border-emerald-500/40">
+                    3
+                  </div>
+                  <div className="text-xs font-bold text-white">
+                    Accès immédiat et illimité
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Code Input */}
+            <div className="p-5 rounded-2xl bg-slate-800/90 border border-indigo-400/60 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-indigo-300">
+                <KeyRound className="w-4 h-4 text-amber-300" />
+                <span>Collez votre CODE reçu par email ici :</span>
+              </div>
+
+              <form onSubmit={handleUnlock} className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Ex : 301e87b4... ou clé de licence"
+                  className="flex-1 px-3.5 py-3 rounded-xl border border-indigo-400/50 bg-slate-900 text-white font-mono text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-500"
+                />
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !code.trim()}
+                  className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  {isSubmitting ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   )}
-                  {activeMethod === 'orange' && (
-                    <>
-                      <p className="font-semibold text-slate-900">Transfert Orange Money :</p>
-                      <p>1. Tapez <strong>#144#</strong> ou ouvrez l'application <strong>Orange Money</strong>.</p>
-                      <p>2. Choisissez Transfert d'argent vers le numéro <strong>0163638893</strong>.</p>
-                      <p>3. Saisissez le montant : <strong>{formattedPrice}</strong> et confirmez avec votre code secret.</p>
-                    </>
-                  )}
-                  {activeMethod === 'mtn' && (
-                    <>
-                      <p className="font-semibold text-slate-900">Transfert MTN Mobile Money :</p>
-                      <p>1. Tapez <strong>*133#</strong> ou ouvrez <strong>MoMo App</strong>.</p>
-                      <p>2. Transférez le montant <strong>{formattedPrice}</strong> vers le <strong>0163638893</strong>.</p>
-                    </>
-                  )}
-                  {activeMethod === 'moov' && (
-                    <>
-                      <p className="font-semibold text-slate-900">Transfert Moov Money :</p>
-                      <p>1. Tapez <strong>*155#</strong> ou ouvrez l'application <strong>Moov Money</strong>.</p>
-                      <p>2. Envoyez <strong>{formattedPrice}</strong> au <strong>0163638893</strong>.</p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Secret Code Quick Unlock */}
-              <div className="p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-200 space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-900">
-                  <KeyRound className="w-4 h-4 text-indigo-600" />
-                  <span>Vous avez déjà payé sur Lemon Squeezy ou WhatsApp ?</span>
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  Entrez votre code d'activation reçu par email (Lemon Squeezy) ou sur WhatsApp pour débloquer votre compte immédiatement.
-                </p>
-                <form onSubmit={handleSecretCodeSubmit} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={secretCodeInput}
-                    onChange={(e) => setSecretCodeInput(e.target.value)}
-                    placeholder="Ex : 301e87b4... ou BAI-PRO-229"
-                    className="flex-1 px-3 py-2 rounded-xl border border-indigo-300 bg-white font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isActivatingCode || !secretCodeInput.trim()}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
-                  >
-                    {isActivatingCode ? 'Validation...' : "Débloquer l'IA"}
-                  </button>
-                </form>
-              </div>
-
-              {/* Confirmation Form */}
-              <form onSubmit={handleConfirmTransfer} className="space-y-4 pt-2 border-t border-slate-100">
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-extrabold">Paiement obligatoire avant activation :</span> Veuillez vous assurer d'avoir déjà transféré <strong>{formattedPrice}</strong> vers le <strong>{OFFICIAL_PAYMENT_NUMBER}</strong> ({activeMethod.toUpperCase()}). Renseignez ci-dessous le numéro utilisé.
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Votre Nom ou Entreprise :
-                    </label>
-                    <input
-                      type="text"
-                      value={senderName}
-                      onChange={(e) => setSenderName(e.target.value)}
-                      placeholder="Ex: Kouamé Marc"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-900 mb-1 flex items-center justify-between">
-                      <span>Numéro expéditeur ou Réf. * :</span>
-                      <span className="text-rose-600 font-bold text-[11px]">Requis</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={senderPhone}
-                      onChange={(e) => setSenderPhone(e.target.value)}
-                      placeholder="Ex: 0708091011 ou ID Wave"
-                      className="w-full px-3.5 py-2.5 rounded-xl border-2 border-rose-300 bg-rose-50/20 text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
-                  <a
-                    href={`https://wa.me/2290163638893?text=${encodeURIComponent(
-                      `Bonjour, je souhaite activer mon forfait ${currentPlan.name} (${formattedPrice}) sur BusinessAI.\nNom / Société : ${senderName || 'Client'}\nNuméro expéditeur : ${senderPhone || 'À préciser'}\nMoyen de paiement : ${activeMethod.toUpperCase()}\nBénéficiaire : ${OFFICIAL_PAYMENT_NUMBER}\nVoici ma confirmation de transfert.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer text-center"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>Envoyer la Preuve par WhatsApp</span>
-                  </a>
-
-                  <button
-                    type="submit"
-                    disabled={isActivating}
-                    className="flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-indigo-200 transition-all active:scale-98 cursor-pointer"
-                  >
-                    {isActivating ? (
-                      <span>Vérification du transfert...</span>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>Valider mon Paiement au 0163638893</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 text-center">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Activation des {currentPlan.monthlyGenerations} générations IA après vérification</span>
-                </div>
+                  <span>{isSubmitting ? 'Validation...' : 'Débloquer l’IA'}</span>
+                </button>
               </form>
-            </div>
-          ) : (
-            /* Success State */
-            <div className="text-center py-6 space-y-5">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
 
-              <div>
-                <h3 className="text-2xl font-black text-slate-900">Félicitations !</h3>
-                <p className="text-sm font-semibold text-emerald-700 mt-1">
-                  Forfait {currentPlan.name} activé avec succès !
-                </p>
-                <p className="text-xs text-slate-600 mt-2 max-w-md mx-auto">
-                  Votre transfert vers le <strong>{OFFICIAL_PAYMENT_NUMBER}</strong> a été validé. Vous disposez désormais de <strong>{currentPlan.monthlyGenerations} générations IA</strong>.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 max-w-md mx-auto space-y-2 text-left">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Statut de la commande :</span>
-                  <span className="font-extrabold text-emerald-700 uppercase">✓ Achat Confirmé & Payé</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Forfait :</span>
-                  <span className="font-bold text-slate-900">{currentPlan.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Montant Réglé :</span>
-                  <span className="font-bold text-indigo-600">{formattedPrice}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Garantie Tarifaire :</span>
-                  <span className="font-bold text-amber-700 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-amber-600" />
-                    <span>Prix Bloqué à Vie (0% hausse)</span>
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Bénéficiaire :</span>
-                  <span className="font-bold text-slate-900">{OFFICIAL_PAYMENT_NUMBER}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleCloseAfterSuccess();
-                    openReceiptModal();
-                  }}
-                  className="flex-1 py-3 px-4 rounded-2xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-xs transition-all cursor-pointer shadow-xs"
+              {feedback && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                    feedback.type === 'success'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                  }`}
                 >
-                  Voir mon Reçu Officiel d'Achat
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCloseAfterSuccess}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
-                >
-                  Commencer à générer avec l'IA
-                </button>
-              </div>
+                  {feedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  <span>{feedback.message}</span>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Need Help WhatsApp */}
+            <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Besoin d’aide ? WhatsApp : <strong>{WHATSAPP_DISPLAY}</strong></span>
+              </div>
+
+              <a
+                href={`https://wa.me/${WHATSAPP_RAW}?text=${encodeURIComponent(
+                  "Bonjour ! J'ai besoin d'aide pour le paiement Lemon Squeezy ou mon code de déblocage pour BusinessAI."
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Ouvrir WhatsApp</span>
+              </a>
+            </div>
+          </div>
         </motion.div>
       </div>
     </AnimatePresence>

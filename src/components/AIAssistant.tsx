@@ -17,10 +17,20 @@ import {
   FileSignature,
   RefreshCw,
   Smartphone,
+  TrendingUp,
+  ArrowUpRight,
 } from 'lucide-react';
 import { ShareActionsBar } from './ShareActionsBar';
+import { SeoAnalysisDrawer } from './SeoAnalysisDrawer';
+import { analyzeMarketingPostSEO } from '../utils/seoAnalyzer';
 
 const PRESET_TOPICS = [
+  {
+    icon: TrendingUp,
+    label: 'Publication SEO & Vente',
+    prompt:
+      "Rédige une publication commerciale virale pour nos réseaux sociaux et Google, avec une accroche percutante, des avantages clients chiffrés, des puces aérées, un appel à l'action WhatsApp clair et des hashtags optimisés pour le référencement.",
+  },
   {
     icon: Mail,
     label: 'Rédiger un message pro',
@@ -81,11 +91,14 @@ export const AIAssistant: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isSeoDrawerOpen, setIsSeoDrawerOpen] = useState(false);
+  const [seoTextToAnalyze, setSeoTextToAnalyze] = useState('');
+
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
       role: 'assistant',
-      text: `Bonjour ! Je suis l'assistant BusinessAI de **${company.name || 'votre entreprise'}**.\n\nJe suis là pour vous aider à :\n- Rédiger des messages et devis professionnels\n- Répondre efficacement à vos clients\n- Concevoir des campagnes et annonces qui vendent\n- Trouver de nouvelles idées pour développer votre chiffre d'affaires\n\nQue souhaitez-vous préparer aujourd'hui ?`,
+      text: `Bonjour ! Je suis l'assistant BusinessAI de **${company.name || 'votre entreprise'}**.\n\nJe suis là pour vous aider à :\n- Rédiger des publications marketing optimisées pour le SEO et la conversion\n- Rédiger des messages et devis professionnels\n- Répondre efficacement à vos clients\n- Concevoir des campagnes et annonces qui vendent\n- Trouver de nouvelles idées pour développer votre chiffre d'affaires\n\nQue souhaitez-vous préparer aujourd'hui ?`,
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -110,13 +123,49 @@ export const AIAssistant: React.FC = () => {
     }
   }, [activePresetPrompt, setActivePresetPrompt]);
 
+  const handleOpenSeoAnalyzer = (textToAnalyze?: string) => {
+    if (textToAnalyze && textToAnalyze.trim()) {
+      setSeoTextToAnalyze(textToAnalyze);
+    } else {
+      // Find latest assistant message
+      const lastBotMsg = [...messages].reverse().find((m) => m.role === 'assistant' && m.id !== 'welcome');
+      if (lastBotMsg && lastBotMsg.text) {
+        setSeoTextToAnalyze(lastBotMsg.text);
+      } else if (input.trim()) {
+        setSeoTextToAnalyze(input);
+      } else {
+        setSeoTextToAnalyze(
+          `🔥 Offre Exceptionnelle chez ${company.name || 'notre marque'} !\n\n` +
+          `Découvrez notre nouvelle sélection exclusive en ${company.sector || 'commerce'} pour booster votre quotidien.\n` +
+          `• Qualité supérieure garantie\n` +
+          `• Disponibilité immédiate et conseils personnalisés\n` +
+          `• Offre limitée pour les premières commandes\n\n` +
+          `📲 Commandez dès maintenant en direct sur WhatsApp au ${company.whatsapp || company.phone || '+229 01 63 63 88 93'} !\n\n` +
+          `#${(company.name || 'business').replace(/[^a-zA-Z0-9]/g, '').toLowerCase()} #promo #qualite #vente #whatsapp`
+        );
+      }
+    }
+    setIsSeoDrawerOpen(true);
+  };
+
+  const handleApplySeoToChat = (optimizedText: string) => {
+    const botMessage: ChatMessage = {
+      id: generateUniqueId('msg-bot-seo'),
+      role: 'assistant',
+      text: `✨ **Version Optimisée SEO & Qualité (Score 95+) :**\n\n${optimizedText}`,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, botMessage]);
+    addToast('success', 'Publication optimisée ajoutée !', 'Le texte avec score SEO maximal est inséré dans la discussion.');
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
     if (!query || loading) return;
 
     if (isFreePlan) {
       openPaymentModal('starter');
-      addToast('error', 'Abonnement requis', 'Veuillez effectuer votre paiement vers le 0163638893 pour débloquer l’IA.');
+      addToast('error', 'Abonnement requis', 'Veuillez souscrire à un forfait pour débloquer l’IA.');
       return;
     }
 
@@ -170,13 +219,6 @@ export const AIAssistant: React.FC = () => {
     }
   };
 
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    addToast('success', 'Texte copié !', 'Le texte est prêt à être collé.');
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const handleResetChat = () => {
     setMessages([
       {
@@ -188,6 +230,9 @@ export const AIAssistant: React.FC = () => {
     ]);
     addToast('info', 'Discussion réinitialisée');
   };
+
+  // Real-time input SEO preview
+  const liveInputSeo = input.trim().length > 25 ? analyzeMarketingPostSEO(input, company) : null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] min-h-[550px] max-w-5xl mx-auto">
@@ -214,13 +259,26 @@ export const AIAssistant: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* SEO Real-time Analyzer Button */}
+          <button
+            onClick={() => handleOpenSeoAnalyzer()}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-gradient-to-r from-indigo-50 to-indigo-100/80 hover:from-indigo-100 hover:to-indigo-200 text-indigo-950 border border-indigo-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="Ouvrir l'outil d'analyse SEO en temps réel"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Analyseur SEO</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-wider">
+              Live
+            </span>
+          </button>
+
           <button
             onClick={openWhatsAppTutorialModal}
             className="p-2 sm:px-3 sm:py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Guide d'intégration WhatsApp"
           >
             <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden md:inline">Intégration WhatsApp</span>
+            <span className="hidden md:inline">WhatsApp</span>
           </button>
 
           <button
@@ -244,7 +302,7 @@ export const AIAssistant: React.FC = () => {
             <div>
               <p className="text-xs font-bold text-slate-900">Accès IA Verrouillé • Forfait requis</p>
               <p className="text-[11px] text-slate-600">
-                Paiement direct vers le numéro officiel <strong>0163638893</strong> (dès {formatMoney(4900)}/mois) pour débloquer l'IA.
+                Paiement sécurisé sur Lemon Squeezy (dès {formatMoney(4900)}/mois) pour débloquer l'IA.
               </p>
             </div>
           </div>
@@ -253,7 +311,7 @@ export const AIAssistant: React.FC = () => {
             onClick={() => openPaymentModal('starter')}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
           >
-            <span>Payer au 0163638893 & Débloquer l'IA</span>
+            <span>Payer & Débloquer l'IA</span>
           </button>
         </div>
       )}
@@ -280,6 +338,9 @@ export const AIAssistant: React.FC = () => {
       <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 overflow-y-auto space-y-4 shadow-2xs">
         {messages.map((msg) => {
           const isUser = msg.role === 'user';
+          const isWelcome = msg.id === 'welcome';
+          const msgSeo = !isUser && !isWelcome ? analyzeMarketingPostSEO(msg.text, company) : null;
+
           return (
             <div
               key={msg.id}
@@ -300,8 +361,45 @@ export const AIAssistant: React.FC = () => {
               >
                 <div className="whitespace-pre-line break-words">{msg.text}</div>
 
-                {!isUser && msg.id !== 'welcome' && (
-                  <div className="mt-3 pt-2 border-t border-slate-200">
+                {/* Real-time SEO Quality Bar for AI Generated Messages */}
+                {!isUser && !isWelcome && msgSeo && (
+                  <div className="mt-3 pt-2.5 border-t border-slate-200/90 flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSeoAnalyzer(msg.text)}
+                      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-300 text-slate-800 text-xs font-bold transition-all shadow-2xs cursor-pointer group active:scale-95"
+                      title="Ouvrir l'analyseur SEO en temps réel pour ce message"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition-transform" />
+                        <span className="text-slate-500 font-semibold text-[11px]">Score SEO :</span>
+                        <strong className="text-slate-900">{msgSeo.overallScore}/100</strong>
+                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                          msgSeo.overallScore >= 80
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : msgSeo.overallScore >= 65
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {msgSeo.grade}
+                      </span>
+                      <span className="text-[11px] text-indigo-600 font-semibold group-hover:underline flex items-center gap-0.5 ml-0.5">
+                        <span>Analyser & Booster</span>
+                        <ArrowUpRight className="w-3 h-3" />
+                      </span>
+                    </button>
+
+                    <div className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                      {msgSeo.wordCount} mots • {msgSeo.hashtags.length} hashtags
+                    </div>
+                  </div>
+                )}
+
+                {!isUser && !isWelcome && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-200">
                     <ShareActionsBar
                       content={msg.text}
                       title="Conseil BusinessAI"
@@ -337,13 +435,33 @@ export const AIAssistant: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Live Input SEO Quick Indicator */}
+      {liveInputSeo && (
+        <div className="mt-2 px-3 py-1.5 rounded-xl bg-indigo-50/80 border border-indigo-200/80 flex items-center justify-between text-xs text-indigo-950 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="text-[11px] font-medium">
+              Aperçu SEO en direct : <strong>{liveInputSeo.overallScore}/100</strong> (Grade {liveInputSeo.grade} • {liveInputSeo.wordCount} mots)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleOpenSeoAnalyzer(input)}
+            className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-0.5 cursor-pointer"
+          >
+            <span>Ouvrir l'Analyseur SEO</span>
+            <ArrowUpRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       {/* Input Box */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="mt-3 flex items-center gap-2"
+        className="mt-2 flex items-center gap-2"
       >
         <div className="relative flex-1">
           <textarea
@@ -355,7 +473,7 @@ export const AIAssistant: React.FC = () => {
                 handleSendMessage();
               }
             }}
-            placeholder="Posez votre question ou décrivez votre besoin (ex: Rédige un message pour féliciter nos clients fidèles)..."
+            placeholder="Posez votre question ou rédigez votre texte marketing pour obtenir une analyse SEO en direct..."
             rows={2}
             className="w-full resize-none p-3.5 pr-12 rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 leading-normal shadow-2xs"
           />
@@ -370,6 +488,18 @@ export const AIAssistant: React.FC = () => {
           <span className="hidden sm:inline">Envoyer</span>
         </button>
       </form>
+
+      {/* Real-Time SEO & Marketing Quality Drawer */}
+      <SeoAnalysisDrawer
+        isOpen={isSeoDrawerOpen}
+        onClose={() => setIsSeoDrawerOpen(false)}
+        initialText={seoTextToAnalyze}
+        company={company}
+        onApplyToChat={handleApplySeoToChat}
+        isAiLocked={isFreePlan}
+        onOpenPaymentModal={() => openPaymentModal('starter')}
+      />
     </div>
   );
 };
+

@@ -159,54 +159,18 @@ export const PricingView: React.FC = () => {
         </div>
       </div>
 
-      {/* Official Payment Number Banner */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-900/60 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5">
-        <div className="space-y-1.5 text-center md:text-left">
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.8 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Paiement Direct Wave & Mobile Money</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white">
-            Envoi d'argent sur le numéro officiel : <span className="text-amber-300">{OFFICIAL_PAYMENT_NUMBER}</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-300">
-            Envoyez le montant de votre forfait par Wave, Orange Money, MTN ou Moov au <strong>{OFFICIAL_PAYMENT_DISPLAY}</strong> pour activer l'IA.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={handleCopyNumber}
-            className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-amber-300" />}
-            <span>{copied ? 'Copié !' : 'Copier le 0163638893'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openPaymentModal('starter')}
-            className="px-5 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer"
-          >
-            <Phone className="w-4 h-4" />
-            <span>Payer & Débloquer l'IA</span>
-          </button>
-        </div>
-      </div>
-
-      {/* WhatsApp Secret Code Unlock Form */}
+      {/* Secret Code Unlock & Lemon Squeezy Checkout Form */}
       <div className="p-6 rounded-3xl bg-indigo-50/80 border-2 border-indigo-200/80 flex flex-col md:flex-row items-center justify-between gap-5 shadow-xs">
         <div className="space-y-1 text-center md:text-left max-w-lg">
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider">
             <KeyRound className="w-3.5 h-3.5 text-amber-300" />
-            <span>Déblocage par Code Secret WhatsApp</span>
+            <span>Déblocage Immédiat par Code</span>
           </div>
           <h3 className="text-base sm:text-lg font-black text-slate-900">
-            Vous avez acheté votre forfait au +229 01 63 63 88 93 ?
+            Vous avez payé sur Lemon Squeezy ou WhatsApp ?
           </h3>
           <p className="text-xs text-slate-600">
-            Saisissez le code d'activation fourni par l'administrateur pour débloquer immédiatement votre forfait.
+            Collez le code reçu par email ou par message pour débloquer votre accès sans attendre.
           </p>
         </div>
 
