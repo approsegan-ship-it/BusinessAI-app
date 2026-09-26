@@ -209,6 +209,7 @@ interface ServerSubscription {
   activatedAt: string;
   expiresAt?: string;
   lastVerifiedAt: string;
+  isTrial?: boolean;
 }
 
 const SERVER_PLAN_CONFIG: Record<
@@ -326,8 +327,23 @@ function requirePaidSubscription(req: Request, res: Response, next: NextFunction
       error: "Paiement obligatoire : Votre compte n'a pas d'abonnement actif.",
       paymentRequired: true,
       currentStatus: sub ? sub.status : "unpaid",
-      message: "Veuillez souscrire à l'un des 3 forfaits (STARTER 9 900 FCFA, PRO 19 900 FCFA ou BUSINESS 49 000 FCFA) pour débloquer l'accès IA.",
+      message: "Veuillez souscrire à l'un des 3 forfaits (STARTER 9 900 FCFA, PRO 19 900 FCFA ou BUSINESS 49 000 FCFA) ou activer votre essai gratuit de 7 jours.",
     });
+  }
+
+  // Vérification de l'expiration (période d'essai ou abonnement à terme)
+  if (sub.expiresAt) {
+    const expiresTime = new Date(sub.expiresAt).getTime();
+    if (Date.now() > expiresTime) {
+      sub.status = "expired";
+      saveSubscriptionForUser(userId, sub);
+      return res.status(402).json({
+        error: "Votre période d'accès (essai gratuit de 7 jours ou abonnement) est arrivée à expiration.",
+        paymentRequired: true,
+        currentStatus: "expired",
+        message: "Votre période d'essai de 7 jours est terminée. Veuillez souscrire à un forfait sur Lemon Squeezy pour continuer à profiter de l'IA.",
+      });
+    }
   }
 
   (req as any).verifiedSubscription = sub;
@@ -361,14 +377,28 @@ async function startServer() {
     });
   });
 
-  // Statut d'abonnement officiel et vérifié
+  // Statut d'abonnement officiel et vérifié (avec prise en compte de l'essai 7 jours)
   app.get("/api/subscription/status", (req: Request, res: Response) => {
     const userId =
       (req.headers["x-user-id"] as string) ||
       (req.query.userId as string);
 
     const sub = userId ? getSubscriptionForUser(userId) : null;
-    const isPaid = Boolean(sub && sub.status === "active");
+    let isPaid = Boolean(sub && sub.status === "active");
+    const isTrial = Boolean(sub?.isTrial || sub?.variantId?.includes("trial") || sub?.orderId?.startsWith("TRIAL"));
+    let trialDaysRemaining = 0;
+
+    if (sub && sub.expiresAt) {
+      const expiresTime = new Date(sub.expiresAt).getTime();
+      const now = Date.now();
+      if (now > expiresTime) {
+        isPaid = false;
+        sub.status = "expired";
+        saveSubscriptionForUser(userId, sub);
+      } else {
+        trialDaysRemaining = Math.max(1, Math.ceil((expiresTime - now) / (1000 * 60 * 60 * 24)));
+      }
+    }
 
     const starterVid = Boolean(process.env.LEMON_SQUEEZY_STARTER_VARIANT_ID?.trim());
     const proVid = Boolean(process.env.LEMON_SQUEEZY_PRO_VARIANT_ID?.trim());
@@ -382,7 +412,9 @@ async function startServer() {
       activatedAt: sub?.activatedAt,
       expiresAt: sub?.expiresAt,
       orderId: sub?.orderId,
-      monthlyGenerations: isPaid && sub ? SERVER_PLAN_CONFIG[sub.plan].monthlyGenerations : 0,
+      isTrial,
+      trialDaysRemaining,
+      monthlyGenerations: isPaid && sub ? (SERVER_PLAN_CONFIG[sub.plan]?.monthlyGenerations || 150) : 0,
       hasLemonSqueezyConfig: Boolean(
         process.env.LEMON_SQUEEZY_API_KEY?.trim() && process.env.LEMON_SQUEEZY_STORE_ID?.trim()
       ),
@@ -713,7 +745,71 @@ async function startServer() {
     "BUSINESSAI-BENIN-2026": { plan: "business", label: "BUSINESS VIP BÉNIN", monthlyGenerations: 5000, days: 365 },
     "BAI-VIP-229": { plan: "business", label: "BUSINESS VIP BÉNIN", monthlyGenerations: 5000, days: 365 },
     "VIP229": { plan: "business", label: "BUSINESS VIP BÉNIN", monthlyGenerations: 5000, days: 365 },
+
+    // 5. Codes Essai Gratuit 7 Jours
+    "ESSAI7JOURS": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
+    "7JOURS": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
+    "7JOURSGRATUIT": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
+    "ESSAI-GRATUIT": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
+    "TRIAL7": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
+    "TRIAL7DAYS": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
+    "FREE7": { plan: "pro", label: "ESSAI GRATUIT 7 JOURS", monthlyGenerations: 300, days: 7 },
   };
+
+  // Endpoint officiel d'activation de l'Essai Gratuit de 7 Jours (Sans CB requise)
+  app.post("/api/subscription/start-free-trial", async (req: Request, res: Response) => {
+    try {
+      const userId = (req.headers["x-user-id"] as string) || req.body?.userId;
+      const { userName, userEmail } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Identifiant utilisateur requis (x-user-id)." });
+      }
+
+      const existing = getSubscriptionForUser(userId);
+      // Si déjà un abonnement actif non-essai
+      if (existing && existing.status === "active" && !existing.isTrial) {
+        return res.json({
+          success: true,
+          message: `Vous disposez déjà d'un abonnement actif (${existing.plan.toUpperCase()}) !`,
+          subscription: existing,
+          isTrial: false,
+        });
+      }
+
+      const expiresDate = new Date();
+      expiresDate.setDate(expiresDate.getDate() + 7);
+
+      const trialSub: ServerSubscription = {
+        userId,
+        userName: userName || "Entrepreneur Invité",
+        userEmail: userEmail || undefined,
+        plan: "pro", // Accès PRO complet pour l'essai !
+        status: "active",
+        isTrial: true,
+        variantId: "trial_7_days_pro",
+        orderId: `TRIAL-7D-${Date.now().toString().slice(-6)}`,
+        activatedAt: new Date().toISOString(),
+        expiresAt: expiresDate.toISOString(),
+        lastVerifiedAt: new Date().toISOString(),
+      };
+
+      saveSubscriptionForUser(userId, trialSub);
+
+      return res.json({
+        success: true,
+        message: "🎉 Félicitations ! Votre essai gratuit de 7 jours est activé. Vous avez un accès complet à BusinessAI PRO.",
+        plan: "pro",
+        isTrial: true,
+        daysRemaining: 7,
+        expiresAt: expiresDate.toISOString(),
+        subscription: trialSub,
+      });
+    } catch (err: any) {
+      console.error("[Start Free Trial] Erreur:", err);
+      return res.status(500).json({ error: err?.message || "Erreur lors du démarrage de l'essai gratuit." });
+    }
+  });
 
   // Endpoint pour débloquer l'accès via le code secret Lemon Squeezy ou WhatsApp
   app.post("/api/subscription/activate-code", async (req: Request, res: Response) => {
@@ -1037,9 +1133,61 @@ async function startServer() {
   });
 
   // Video Generation Endpoint with Veo
+  // Direct Veo Video Generation Endpoint (/api/generate-video-veo)
+  app.post("/api/generate-video-veo", requirePaidSubscription, async (req: Request, res: Response) => {
+    try {
+      const { prompt, aspectRatio = "16:9", durationSeconds = 5 } = req.body;
+      const apiKey = req.body.apiKey || process.env.GEMINI_API_KEY;
+
+      if (!prompt || typeof prompt !== "string") {
+        return res.status(400).json({ error: "Le paramètre 'prompt' est requis." });
+      }
+
+      if (!apiKey) {
+        return res.status(503).json({ error: "Clé API Gemini non disponible.", requiresPaidKey: true });
+      }
+
+      const validRatio = aspectRatio === "9:16" ? "9:16" : "16:9";
+
+      const start = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [{ prompt: prompt.trim() }],
+            parameters: { aspectRatio: validRatio, durationSeconds: Number(durationSeconds) || 5 },
+          }),
+        }
+      );
+
+      if (!start.ok) {
+        const errorData = await start.json().catch(() => ({}));
+        return res.status(start.status).json({
+          error: errorData.error?.message || "Erreur lors du lancement de la génération Veo.",
+          requiresPaidKey: true,
+          details: errorData,
+        });
+      }
+
+      const startResult = await start.json();
+      const operationName = startResult.name;
+
+      return res.json({
+        operationName,
+        model: "veo-3.1-generate-preview",
+        aspectRatio: validRatio,
+        durationSeconds,
+      });
+    } catch (err: any) {
+      console.error("[Veo Direct Route] Erreur:", err?.message || err);
+      return res.status(500).json({ error: err?.message || "Erreur serveur Veo" });
+    }
+  });
+
   app.post("/api/gemini/generate-video", requirePaidSubscription, async (req: Request, res: Response) => {
     try {
-      const { prompt, aspectRatio = "9:16", resolution = "720p" } = req.body;
+      const { prompt, aspectRatio = "9:16", resolution = "720p", model = "veo-3.1-generate-preview" } = req.body;
 
       if (!prompt || typeof prompt !== "string") {
         return res.status(400).json({ error: "Le paramètre 'prompt' est requis." });
@@ -1056,7 +1204,7 @@ async function startServer() {
       const validRatio = aspectRatio === "16:9" ? "16:9" : "9:16";
 
       const operation = await ai.models.generateVideos({
-        model: "veo-3.1-lite-generate-preview",
+        model: model === "veo-3.1-lite-generate-preview" ? "veo-3.1-lite-generate-preview" : "veo-3.1-generate-preview",
         prompt: prompt.trim(),
         config: {
           numberOfVideos: 1,
@@ -1100,10 +1248,15 @@ async function startServer() {
       op.name = operationName;
       const updated = await ai.operations.getVideosOperation({ operation: op });
 
+      const videoUri =
+        (updated.response as any)?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+        updated.response?.generatedVideos?.[0]?.video?.uri;
+
       return res.json({
         done: Boolean(updated.done),
         error: updated.error || null,
-        videoAvailable: Boolean(updated.response?.generatedVideos?.[0]?.video?.uri),
+        videoAvailable: Boolean(videoUri),
+        videoUri: videoUri || null,
       });
     } catch (err: any) {
       console.error("[Veo Status] Erreur polling:", err?.message || err);
@@ -1127,7 +1280,9 @@ async function startServer() {
       const op = new GenerateVideosOperation();
       op.name = operationName;
       const updated = await ai.operations.getVideosOperation({ operation: op });
-      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+      const uri =
+        (updated.response as any)?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+        updated.response?.generatedVideos?.[0]?.video?.uri;
 
       if (!uri) {
         return res.status(404).json({ error: "Le fichier vidéo n'est pas encore prêt ou introuvable." });

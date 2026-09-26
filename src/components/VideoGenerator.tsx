@@ -226,7 +226,7 @@ export const VideoGenerator: React.FC = () => {
       addToast(
         'warning',
         'Paiement requis pour Veo',
-        'Le modèle cinématique Google Veo requiert un abonnement actif. Effectuez votre règlement au 0163638893.'
+        'Le modèle cinématique Google Veo requiert un abonnement actif sur Lemon Squeezy.'
       );
       openPaymentModal('pro');
       return;
@@ -314,7 +314,7 @@ export const VideoGenerator: React.FC = () => {
       addToast(
         'warning',
         'Paiement requis pour exporter la vidéo',
-        'L’exportation de vidéos MP4 de haute qualité requiert un abonnement actif. Effectuez votre règlement au 0163638893.'
+        'L’exportation de vidéos MP4 de haute qualité requiert un abonnement actif sur Lemon Squeezy.'
       );
       openPaymentModal('starter');
       return;
@@ -519,8 +519,8 @@ export const VideoGenerator: React.FC = () => {
     if (user.plan === 'free' || !user.isPurchased) {
       addToast(
         'warning',
-        'Abonnement requis • Paiement au 0163638893',
-        'Envoyez votre paiement au 0163638893 pour activer l’IA et générer vos vidéos marketing.'
+        'Abonnement requis • Déblocage immédiat',
+        'Souscrivez à un forfait sur Lemon Squeezy pour activer l’IA et générer vos vidéos marketing.'
       );
       openPaymentModal('starter');
       return;

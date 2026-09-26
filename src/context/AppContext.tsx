@@ -45,6 +45,7 @@ import {
   fetchServerSubscriptionStatus,
   createLemonSqueezyCheckout,
   activateSubscriptionCode,
+  startFreeTrial,
 } from '../services/paymentService';
 import { getClientUserId } from '../utils/userId';
 
@@ -89,6 +90,7 @@ interface AppContextType {
   startLemonSqueezyCheckout: (planId: 'starter' | 'pro' | 'business') => Promise<void>;
   refreshSubscriptionStatus: () => Promise<void>;
   submitActivationCode: (code: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  startTrial: () => Promise<{ success: boolean; message?: string; error?: string }>;
   upgradePlan: (
     plan: UserPlan,
     paymentDetails?: { senderName?: string; senderPhone?: string; transactionRef?: string }
@@ -597,7 +599,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setServerSubscription(status);
         if (status.isPaid && status.status === 'active') {
           setUser((prev) => {
-            const planLimit = status.monthlyGenerations || 100;
+            const planLimit = status.monthlyGenerations || 150;
             return {
               ...prev,
               id: getClientUserId(),
@@ -605,6 +607,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isPurchased: true,
               serverVerified: true,
               purchaseStatus: 'completed',
+              isTrial: Boolean(status.isTrial),
+              trialDaysRemaining: status.trialDaysRemaining,
+              trialExpiresAt: status.expiresAt,
               maxCredits: planLimit,
               availableCredits: Math.max(0, planLimit - prev.creditsUsed),
             };
@@ -618,6 +623,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isPurchased: false,
             serverVerified: false,
             purchaseStatus: undefined,
+            isTrial: false,
+            trialDaysRemaining: undefined,
+            trialExpiresAt: undefined,
             maxCredits: 0,
             availableCredits: 0,
           }));
@@ -632,6 +640,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshSubscriptionStatus = async () => {
     await syncServerSubscription();
+  };
+
+  const startTrial = async (): Promise<{ success: boolean; message?: string; error?: string }> => {
+    try {
+      const res = await startFreeTrial(user.name, user.email);
+      if (res.success) {
+        addToast(
+          'success',
+          '🎁 Essai Gratuit de 7 Jours Débloqué !',
+          res.message || 'Profitez de 7 jours d’accès complet à l’IA BusinessAI PRO.'
+        );
+        await syncServerSubscription();
+        return { success: true, message: res.message };
+      } else {
+        const errorMsg = res.error || "Impossible d'activer l'essai gratuit.";
+        addToast('error', 'Échec de l’activation', errorMsg);
+        return { success: false, error: errorMsg };
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Erreur inattendue';
+      addToast('error', 'Erreur', msg);
+      return { success: false, error: msg };
+    }
   };
 
   const submitActivationCode = async (
@@ -1235,6 +1266,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         startLemonSqueezyCheckout,
         refreshSubscriptionStatus,
         submitActivationCode,
+        startTrial,
         upgradePlan,
         consumeCredit,
         addBonusCredits,

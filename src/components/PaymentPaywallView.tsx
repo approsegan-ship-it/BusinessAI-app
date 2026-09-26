@@ -25,12 +25,14 @@ export const PaymentPaywallView: React.FC = () => {
     isCheckingServerSubscription,
     refreshSubscriptionStatus,
     submitActivationCode,
+    startTrial,
     addToast,
   } = useApp();
 
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -38,6 +40,24 @@ export const PaymentPaywallView: React.FC = () => {
     'https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a';
   const WHATSAPP_DISPLAY = '+229 01 63 63 88 93';
   const WHATSAPP_RAW = '2290163638893';
+
+  const handleStartTrial = async () => {
+    setIsStartingTrial(true);
+    setFeedback(null);
+    const res = await startTrial();
+    setIsStartingTrial(false);
+    if (res.success) {
+      setFeedback({
+        type: 'success',
+        message: '🎉 Votre essai de 7 jours est activé avec succès ! Accès immédiat déverrouillé.',
+      });
+    } else {
+      setFeedback({
+        type: 'error',
+        message: res.error || "Impossible d'activer l'essai gratuit.",
+      });
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(LEMON_CHECKOUT_URL);
@@ -139,6 +159,34 @@ export const PaymentPaywallView: React.FC = () => {
 
             <div className="text-[11px] sm:text-xs text-slate-400 font-mono break-all bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-800">
               {LEMON_CHECKOUT_URL}
+            </div>
+          </div>
+
+          {/* 7-DAY FREE TRIAL FAST ACTIVATION */}
+          <div className="max-w-2xl mx-auto p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-indigo-950/80 border-2 border-emerald-500/60 shadow-xl space-y-3.5 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-black text-xs uppercase tracking-wide">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Nouveau : 7 Jours d'Essai Gratuit</span>
+            </div>
+            
+            <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
+              Testez gratuitement toutes les fonctionnalités IA pendant 7 jours
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-300 max-w-lg mx-auto">
+              Sans engagement et sans carte bancaire requise. Accédez à l'Assistant IA, aux vidéos Veo, aux fiches produits et à la prospection WhatsApp dès maintenant.
+            </p>
+
+            <div className="pt-1 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleStartTrial}
+                disabled={isStartingTrial}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer inline-flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-amber-900" />
+                <span>{isStartingTrial ? "Activation de l'essai en cours..." : "🎁 Démarrer mes 7 jours d'essai gratuit"}</span>
+              </button>
             </div>
           </div>
 

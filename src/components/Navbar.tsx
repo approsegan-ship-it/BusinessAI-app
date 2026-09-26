@@ -80,7 +80,28 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Area: Payment + Language + Currency + Plan + Notifications + Account */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Quick Lemon Squeezy Payment button */}
+            {/* Quick Lemon Squeezy Payment button & Free Trial CTA */}
+            {!user.isPurchased && (
+              <button
+                onClick={() => openPaymentModal('starter')}
+                title="Démarrez votre essai gratuit de 7 jours"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 text-emerald-900 text-xs font-black transition-all shadow-2xs cursor-pointer active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Essai 7 Jours Gratuit</span>
+              </button>
+            )}
+
+            {user.isTrial && (
+              <div
+                title="Période d'essai gratuit de 7 jours en cours"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-extrabold shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Essai 7j ({user.trialDaysRemaining || 7}j restants)</span>
+              </div>
+            )}
+
             <a
               href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
               target="_blank"

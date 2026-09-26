@@ -316,21 +316,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
         <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Crown className={`w-3.5 h-3.5 ${isStarter ? 'text-indigo-600' : planId === 'business' ? 'text-amber-600' : 'text-slate-700'}`} />
+              <Crown className={`w-3.5 h-3.5 ${user.isTrial ? 'text-emerald-600' : isStarter ? 'text-indigo-600' : planId === 'business' ? 'text-amber-600' : 'text-slate-700'}`} />
               <span className="text-xs font-extrabold uppercase text-slate-900 tracking-tight">
-                Plan {planId.toUpperCase()}
+                {user.isTrial ? 'Plan PRO (Essai 7j)' : `Plan ${planId.toUpperCase()}`}
               </span>
             </div>
-            {isStarter && (
+            {user.isTrial ? (
+              <span className="text-[9px] font-extrabold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300">
+                {user.trialDaysRemaining || 7}j restants
+              </span>
+            ) : isStarter ? (
               <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">
                 Recommandé
               </span>
-            )}
-            {planId === 'business' && (
+            ) : planId === 'business' ? (
               <span className="text-[9px] font-bold bg-amber-50 text-amber-900 px-1.5 py-0.2 rounded border border-amber-200">
                 Équipe
               </span>
-            )}
+            ) : null}
           </div>
 
           <div>
@@ -358,12 +361,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             onClick={() => openPaymentModal(isFree ? 'starter' : (planId as any))}
             className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
               isFree
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                ? 'bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white shadow-xs'
                 : 'bg-slate-900 hover:bg-slate-800 text-white'
             }`}
           >
             <CreditCard className="w-3.5 h-3.5 text-amber-300" />
-            <span>{isFree ? 'Débloquer l’IA' : 'Prolonger / Changer'}</span>
+            <span>{isFree ? '🎁 Essai 7j ou Forfait' : 'Prolonger / Changer'}</span>
           </button>
         </div>
       </div>

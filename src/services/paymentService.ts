@@ -149,3 +149,47 @@ export async function activateSubscriptionCode(
   }
 }
 
+/**
+ * Activates the 7-day free trial on the server.
+ */
+export async function startFreeTrial(
+  userName?: string,
+  userEmail?: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  plan?: UserPlan;
+  isTrial?: boolean;
+  daysRemaining?: number;
+  expiresAt?: string;
+}> {
+  try {
+    const response = await fetch('/api/subscription/start-free-trial', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        userName,
+        userEmail,
+        userId: getClientUserId(),
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || `Impossible d'activer l'essai gratuit (HTTP ${response.status})`,
+      };
+    }
+
+    return data;
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Impossible de contacter le serveur pour activer l’essai gratuit.',
+    };
+  }
+}
+
+

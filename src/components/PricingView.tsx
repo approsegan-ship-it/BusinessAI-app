@@ -38,6 +38,7 @@ export const PricingView: React.FC = () => {
     openPaymentModal,
     startLemonSqueezyCheckout,
     submitActivationCode,
+    startTrial,
     addToast,
     t,
   } = useApp();
@@ -46,6 +47,13 @@ export const PricingView: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [activationCodeInput, setActivationCodeInput] = useState('');
   const [isActivating, setIsActivating] = useState(false);
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
+
+  const handleStartTrial = async () => {
+    setIsStartingTrial(true);
+    await startTrial();
+    setIsStartingTrial(false);
+  };
 
   const currentPlanConfig = getPlanConfig(user.plan);
 
@@ -78,6 +86,10 @@ export const PricingView: React.FC = () => {
   };
 
   const faqs = [
+    {
+      q: "Comment fonctionne l'essai gratuit de 7 jours ?",
+      a: "Vous pouvez tester l'ensemble des fonctionnalités de BusinessAI (assistant marketing, création de vidéos Veo, visuels, fiches de vente) pendant 7 jours sans aucune carte bancaire requise. Vous pouvez activer vos 7 jours en un seul clic !",
+    },
     {
       q: 'Comment payer et envoyer l’argent pour activer l’IA ?',
       a: `Vous pouvez envoyer votre paiement par Wave, Orange Money, MTN MoMo ou Moov Money au numéro officiel ${OFFICIAL_PAYMENT_NUMBER} (+229 01 63 63 88 93). Votre compte est débloqué immédiatement après confirmation ou saisie de votre code d'activation.`,
@@ -150,13 +162,50 @@ export const PricingView: React.FC = () => {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-slate-200 shadow-2xs text-xs sm:text-sm text-slate-700">
           <span>Votre forfait actuel :</span>
           <span className="font-extrabold text-indigo-600 uppercase bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-100">
-            {currentPlanConfig.name}
+            {user.isTrial ? 'PRO (Essai Gratuit)' : currentPlanConfig.name}
           </span>
           <span className="text-slate-400">•</span>
           <span className="font-medium text-slate-500">
-            {user.availableCredits} / {user.maxCredits} générations restantes
+            {user.isTrial
+              ? `${user.trialDaysRemaining || 7} jour(s) d'essai restant(s)`
+              : `${user.availableCredits} / ${user.maxCredits} générations restantes`}
           </span>
         </div>
+      </div>
+
+      {/* 7-DAY FREE TRIAL BANNER */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white shadow-lg border border-emerald-400/40 flex flex-col md:flex-row items-center justify-between gap-5">
+        <div className="space-y-1.5 text-center md:text-left max-w-xl">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-black/30 border border-emerald-300/40 text-emerald-200 text-xs font-black uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Offre de Bienvenue Sans Carte Bancaire</span>
+          </div>
+          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            7 Jours d'Essai Gratuit sur BusinessAI PRO
+          </h3>
+          <p className="text-xs sm:text-sm text-emerald-100">
+            {user.isTrial
+              ? `Votre essai gratuit de 7 jours est actuellement actif (${user.trialDaysRemaining || 7} jours restants). Profitez sans limite de la génération de vidéos Veo, de posts réseaux sociaux et de scripts de vente.`
+              : "Bénéficiez de 7 jours d'accès complet sans engagement pour tester toutes nos fonctionnalités d'intelligence artificielle dédiées aux entrepreneurs."}
+          </p>
+        </div>
+
+        {!user.isPurchased ? (
+          <button
+            type="button"
+            onClick={handleStartTrial}
+            disabled={isStartingTrial}
+            className="w-full md:w-auto px-6 py-3.5 rounded-2xl bg-white hover:bg-emerald-50 text-emerald-900 font-black text-sm shadow-xl transition-all cursor-pointer hover:scale-[1.02] active:scale-98 shrink-0 flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <span>{isStartingTrial ? "Activation en cours..." : "Démarrer mes 7 jours d'essai gratuit"}</span>
+          </button>
+        ) : user.isTrial ? (
+          <div className="px-4 py-2.5 rounded-2xl bg-black/30 border border-emerald-300/40 text-white font-black text-xs shrink-0 flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-300" />
+            <span>Essai 7 jours activé ({user.trialDaysRemaining || 7}j restants)</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Secret Code Unlock & Lemon Squeezy Checkout Form */}

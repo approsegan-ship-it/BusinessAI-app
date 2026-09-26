@@ -28,12 +28,23 @@ export const PricingModal: React.FC = () => {
     openPaymentModal,
     startLemonSqueezyCheckout,
     submitActivationCode,
+    startTrial,
     addToast,
   } = useApp();
 
   const [selectedMethod, setSelectedMethod] = useState<'wave' | 'orange_money' | 'mtn' | 'moov' | 'card'>('wave');
   const [modalCode, setModalCode] = useState('');
   const [isActivatingCode, setIsActivatingCode] = useState(false);
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
+
+  const handleStartTrial = async () => {
+    setIsStartingTrial(true);
+    const res = await startTrial();
+    setIsStartingTrial(false);
+    if (res.success) {
+      setIsPricingModalOpen(false);
+    }
+  };
 
   const handleActivateWithCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +135,47 @@ export const PricingModal: React.FC = () => {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 7-DAY FREE TRIAL HERO BANNER */}
+          <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border-2 border-emerald-500/40 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3.5 text-left w-full md:w-auto">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <Sparkles className="w-6 h-6 text-amber-300 animate-spin-slow" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                    Offre de Bienvenue
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">
+                    7 Jours d'Essai Gratuit
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {user.isTrial
+                    ? `🎉 Votre essai de 7 jours est en cours (${user.trialDaysRemaining || 7} jour(s) restant(s)). Profitez de l'IA sans retenue !`
+                    : "Testez toutes les fonctionnalités IA immédiatement sans carte bancaire requise (Assistant, Vidéos Veo, Visuels, WhatsApp)."}
+                </p>
+              </div>
+            </div>
+
+            {!user.isPurchased ? (
+              <button
+                type="button"
+                onClick={handleStartTrial}
+                disabled={isStartingTrial}
+                className="w-full md:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shrink-0 flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer transition-all active:scale-95"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>{isStartingTrial ? "Activation en cours..." : "Démarrer mon essai de 7 jours gratuit"}</span>
+              </button>
+            ) : user.isTrial ? (
+              <div className="px-4 py-2 rounded-xl bg-emerald-600/15 border border-emerald-600/30 text-emerald-800 font-black text-xs shrink-0 flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Essai 7 jours ACTIF</span>
+              </div>
+            ) : null}
           </div>
 
           {/* 4 Cards Grid */}

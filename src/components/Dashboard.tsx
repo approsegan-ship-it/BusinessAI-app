@@ -133,6 +133,36 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12 max-w-7xl mx-auto">
+      {/* 7-Day Trial Welcome & Status Banner */}
+      {user.isTrial && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-indigo-500/15 border-2 border-emerald-500/40 text-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-md">
+              🎁
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  Essai Gratuit Actif
+                </span>
+                <h3 className="font-black text-sm sm:text-base text-slate-900">
+                  Bienvenue dans vos 7 jours d'essai gratuit BusinessAI PRO !
+                </h3>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Il vous reste <strong>{user.trialDaysRemaining || 7} jour(s)</strong> pour tester l'assistant marketing, générer vos publications, fiches produits et vidéos Veo sans restriction.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setCurrentTab('pricing')}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+          >
+            Découvrir les offres complètes
+          </button>
+        </div>
+      )}
+
       {/* Free Plan Lock Banner */}
       {user.plan === 'free' && (
         <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">

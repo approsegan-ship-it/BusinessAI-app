@@ -86,6 +86,8 @@ export interface ServerSubscriptionStatus {
   variantId?: string;
   activatedAt?: string;
   expiresAt?: string;
+  isTrial?: boolean;
+  trialDaysRemaining?: number;
   monthlyGenerations: number;
   hasLemonSqueezyConfig: boolean;
   configuredVariants: {
@@ -114,6 +116,9 @@ export interface UserAccount {
   priceLocked?: boolean;
   priceLockDate?: string;
   activeReceipt?: PurchaseReceipt;
+  isTrial?: boolean;
+  trialExpiresAt?: string;
+  trialDaysRemaining?: number;
 }
 
 export type BadgeId =
