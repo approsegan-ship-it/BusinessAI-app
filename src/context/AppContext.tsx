@@ -84,6 +84,10 @@ interface AppContextType {
   updateCallSession: (id: string, session: Partial<AICallSession>) => void;
   deleteCallSession: (id: string) => void;
   user: UserAccount;
+  setUser: React.Dispatch<React.SetStateAction<UserAccount>>;
+  updateUser: (updates: Partial<UserAccount>) => void;
+  addHistoryItem: (item: Omit<HistoryItem, 'id' | 'createdAt'>) => HistoryItem;
+  showNotification: (message: string, type?: ToastMessage['type']) => void;
   serverSubscription: ServerSubscriptionStatus | null;
   isCheckingServerSubscription: boolean;
   isCheckoutLoading: boolean;
@@ -164,6 +168,9 @@ interface AppContextType {
   isWhatsAppModalOpen: boolean;
   setIsWhatsAppModalOpen: (open: boolean) => void;
   openWhatsAppTutorialModal: () => void;
+  isEnterpriseGuideOpen: boolean;
+  setIsEnterpriseGuideOpen: (open: boolean) => void;
+  openEnterpriseGuide: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -195,6 +202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isViralPostModalOpen, setIsViralPostModalOpen] = useState(false);
   const [isEarnCreditsModalOpen, setIsEarnCreditsModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [isEnterpriseGuideOpen, setIsEnterpriseGuideOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState<PlanId>('starter');
@@ -1181,6 +1189,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsWhatsAppModalOpen(true);
   };
 
+  const openEnterpriseGuide = () => {
+    setIsEnterpriseGuideOpen(true);
+  };
+
   const completeOnboarding = (data: {
     businessName?: string;
     sector?: any;
@@ -1227,6 +1239,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast('info', 'Déconnexion', 'Vous êtes maintenant en mode invité.');
   };
 
+  const updateUser = (updates: Partial<UserAccount>) => {
+    setUser((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
+  const addHistoryItem = addHistory;
+
+  const showNotification = (
+    message: string,
+    type: ToastMessage['type'] = 'info'
+  ) => {
+    addToast(type, message);
+  };
+
   const unreadNotifsCount = (Array.isArray(notifications) ? notifications : []).filter((n) => !n?.read).length;
 
   return (
@@ -1260,6 +1288,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCallSession,
 
         user,
+        setUser,
+        updateUser,
+        addHistoryItem,
+        showNotification,
         serverSubscription,
         isCheckingServerSubscription,
         isCheckoutLoading,
@@ -1335,6 +1367,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isWhatsAppModalOpen,
         setIsWhatsAppModalOpen,
         openWhatsAppTutorialModal,
+        isEnterpriseGuideOpen,
+        setIsEnterpriseGuideOpen,
+        openEnterpriseGuide,
       }}
     >
       {children}

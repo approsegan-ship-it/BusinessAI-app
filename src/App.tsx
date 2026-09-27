@@ -22,6 +22,7 @@ import { PaymentInstructionModal } from './components/PaymentInstructionModal';
 import { PurchaseReceiptModal } from './components/PurchaseReceiptModal';
 import { BusinessAICodeHubModal } from './components/BusinessAICodeHubModal';
 import { AuthModal } from './components/AuthModal';
+import { EnterpriseAIGuideModal } from './components/EnterpriseAIGuideModal';
 import { WhatsAppTutorialModal } from './components/WhatsAppTutorialModal';
 import { ShareModal } from './components/ShareModal';
 import { ViralPostModal } from './components/ViralPostModal';
@@ -110,6 +111,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Global Modals & Notifications */}
+      <EnterpriseAIGuideModal />
       <WhatsAppTutorialModal />
       <ShareModal />
       <ViralPostModal />

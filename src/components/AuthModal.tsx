@@ -21,11 +21,12 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
-    setUser({
+    setUser((prev) => ({
+      ...prev,
       name: name.trim(),
       email: email.trim(),
       isLoggedIn: true,
-    });
+    }));
 
     if (businessName.trim() && !company.name) {
       updateCompany({ name: businessName.trim() });

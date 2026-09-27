@@ -19,12 +19,26 @@ import {
   Smartphone,
   TrendingUp,
   ArrowUpRight,
+  Compass,
+  Workflow,
 } from 'lucide-react';
 import { ShareActionsBar } from './ShareActionsBar';
 import { SeoAnalysisDrawer } from './SeoAnalysisDrawer';
 import { analyzeMarketingPostSEO } from '../utils/seoAnalyzer';
 
 const PRESET_TOPICS = [
+  {
+    icon: Compass,
+    label: 'Diagnostic IA Entreprise',
+    prompt:
+      "Aide-moi à choisir les meilleures solutions d'IA pour mon entreprise parmi les 4 piliers : Bureautique Augmentée (Microsoft 365 Copilot, Google Workspace Gemini), Recherche Interne (Glean, Notion AI), Agents No-Code (Zapier Central, Custom GPTs), et Analyse de Données (Tableau Pulse). Quel est le plan d'adoption idéal pour mon organisation ?",
+  },
+  {
+    icon: Workflow,
+    label: 'Agents & Automatisation No-Code',
+    prompt:
+      "Comment concevoir et déployer des agents IA autonomes sans code (comme Zapier Central ou Custom GPTs) pour automatiser la surveillance de mes fichiers et relancer mes clients en synergie avec BusinessAI ?",
+  },
   {
     icon: TrendingUp,
     label: 'Publication SEO & Vente',
@@ -83,6 +97,7 @@ export const AIAssistant: React.FC = () => {
     activePresetPrompt,
     setActivePresetPrompt,
     openWhatsAppTutorialModal,
+    openEnterpriseGuide,
     openPaymentModal,
     formatMoney,
     t,
@@ -259,6 +274,19 @@ export const AIAssistant: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Guide & Diagnostic Solutions IA Button */}
+          <button
+            onClick={openEnterpriseGuide}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-100/90 hover:from-purple-100 hover:to-indigo-200 text-purple-950 border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="Ouvrir le guide & diagnostic des solutions IA pour entreprise"
+          >
+            <Compass className="w-3.5 h-3.5 text-purple-600" />
+            <span className="hidden sm:inline">Diagnostic & Guide IA</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-purple-600 text-white text-[9px] font-black uppercase tracking-wider">
+              4 Piliers
+            </span>
+          </button>
+
           {/* SEO Real-time Analyzer Button */}
           <button
             onClick={() => handleOpenSeoAnalyzer()}

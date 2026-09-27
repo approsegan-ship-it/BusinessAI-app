@@ -112,18 +112,18 @@ Fournis la réponse en respectant STRICTEMENT les balises suivantes :
 
     try {
       const res = await generateAIContent(prompt, company, 0.7);
-      const text = res.text;
+      const text = res?.text || '';
 
       const titleMatch = text.match(/\[TITLE\]([\s\S]*?)\[\/TITLE\]/i);
       const descMatch = text.match(/\[DESCRIPTION\]([\s\S]*?)\[\/DESCRIPTION\]/i);
       const bulletsMatch = text.match(/\[BULLETS\]([\s\S]*?)\[\/BULLETS\]/i);
       const ctaMatch = text.match(/\[CTA\]([\s\S]*?)\[\/CTA\]/i);
 
-      const parsedTitle = titleMatch ? titleMatch[1].trim() : `${name} – Qualité & Élégance`;
-      const parsedDesc = descMatch
+      const parsedTitle = titleMatch && titleMatch[1] ? titleMatch[1].trim() : `${name} – Qualité & Élégance`;
+      const parsedDesc = descMatch && descMatch[1]
         ? descMatch[1].trim()
         : `Découvrez ${name}, le produit parfait pour répondre à toutes vos exigences. Fabriqué avec soin pour vous offrir une expérience d'exception.`;
-      const parsedBullets = bulletsMatch
+      const parsedBullets = bulletsMatch && bulletsMatch[1]
         ? bulletsMatch[1]
             .trim()
             .split('\n')
@@ -134,7 +134,7 @@ Fournis la réponse en respectant STRICTEMENT les balises suivantes :
             'Idéal pour un usage quotidien fiable et durable',
             'Excellent rapport qualité / prix garanti',
           ];
-      const parsedCta = ctaMatch
+      const parsedCta = ctaMatch && ctaMatch[1]
         ? ctaMatch[1].trim()
         : `Commandez votre ${name} dès maintenant chez ${company.name} !`;
 

@@ -1,11 +1,41 @@
 /**
- * Lemon Squeezy & Server Subscription Service
- * Interfaces with the secure backend endpoints to initiate checkouts,
- * verify transactions and synchronize subscription state.
+ * Payment & Subscription Service
+ * - Option 1 : Moov Money / MTN (Kkiapay) - 10.000F (Bénin, Togo, Sénégal)
+ * - Option 2 : Carte Visa (Gumroad) - $20 (France, USA, International)
+ * - Lemon Squeezy : Déconnecté
  */
-
 import { getAuthHeaders, getClientUserId } from '../utils/userId';
 import { ServerSubscriptionStatus, UserPlan } from '../types';
+
+export const PAYMENT_CHANNELS = {
+  kkiapay: {
+    id: 'kkiapay',
+    title: 'Moov Money / MTN (Kkiapay) - 10.000F',
+    subtitle: 'Pour tes clients du Bénin, Togo, Sénégal',
+    amount: 10000,
+    currency: 'FCFA',
+    displayPrice: '10.000F',
+    countries: ['Bénin 🇧🇯', 'Togo 🇹🇬', 'Sénégal 🇸🇳', 'Côte d’Ivoire 🇨🇮'],
+    methods: ['Moov Money (Flooz)', 'MTN Mobile Money', 'Celtiis Cash', 'Wave', 'Orange Money'],
+    url: (import.meta as any).env?.VITE_KKIAPAY_URL || 'https://pay.kkiapay.me/',
+    publicKey: (import.meta as any).env?.VITE_KKIAPAY_PUBLIC_KEY || '',
+  },
+  gumroad: {
+    id: 'gumroad',
+    title: 'Carte Visa (Gumroad) - $20',
+    subtitle: 'Pour les clients en France, USA',
+    amount: 20,
+    currency: 'USD',
+    displayPrice: '$20',
+    countries: ['France 🇫🇷', 'USA 🇺🇸', 'Europe 🇪🇺', 'International 🌍'],
+    methods: ['Carte Visa', 'Mastercard', 'Apple Pay', 'Google Pay', 'PayPal'],
+    url: (import.meta as any).env?.VITE_GUMROAD_URL || 'https://gumroad.com/',
+  },
+  support: {
+    whatsappDisplay: '+229 01 63 63 88 93',
+    whatsappRaw: '2290163638893',
+  },
+};
 
 export interface CheckoutResponse {
   checkoutUrl?: string;
@@ -16,47 +46,68 @@ export interface CheckoutResponse {
 }
 
 /**
- * Initiates a Lemon Squeezy checkout session on the server.
- * The server securely looks up the pre-configured Variant ID from environment variables.
- * The frontend NEVER supplies or chooses prices or variant IDs.
+ * Lemon Squeezy est déconnecté.
+ * Redirige vers Kkiapay ou Gumroad selon le contexte.
  */
 export async function createLemonSqueezyCheckout(
   planId: 'starter' | 'pro' | 'business',
-  userEmail?: string,
-  userName?: string
+  _userEmail?: string,
+  _userName?: string
 ): Promise<CheckoutResponse> {
-  const userId = getClientUserId();
+  return {
+    error: 'Lemon Squeezy a été déconnecté. Veuillez utiliser le Bouton 1 (Kkiapay - Moov/MTN - 10.000F) ou le Bouton 2 (Gumroad - Carte Visa - $20).',
+    checkoutUrl: PAYMENT_CHANNELS.kkiapay.url,
+    plan: planId,
+  };
+}
 
-  try {
-    const response = await fetch('/api/payments/lemonsqueezy/create-checkout', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        planId,
-        userEmail,
-        userName,
-        userId,
-      }),
-    });
+/**
+ * Lance le paiement Kkiapay (Moov Money / MTN - 10.000F).
+ * Si le SDK JS Kkiapay est chargé, ouvre la popup widget, sinon ouvre le lien sécurisé.
+ */
+export function openKkiapayPayment(options?: {
+  amount?: number;
+  email?: string;
+  name?: string;
+  phone?: string;
+  onSuccess?: (response: any) => void;
+}) {
+  const amount = options?.amount || PAYMENT_CHANNELS.kkiapay.amount;
+  const kkiapayWindow = window as any;
 
-    const data = await response.json();
+  if (typeof kkiapayWindow.openKkiapayWidget === 'function') {
+    try {
+      kkiapayWindow.openKkiapayWidget({
+        amount,
+        position: 'center',
+        callback: '',
+        data: { source: 'businessai_app' },
+        theme: '#4f46e5',
+        key: PAYMENT_CHANNELS.kkiapay.publicKey || 'kkiapay_live_key',
+        sandbox: false,
+        name: options?.name || '',
+        email: options?.email || '',
+        phone: options?.phone || '',
+      });
 
-    if (!response.ok) {
-      return {
-        error: data.error || `Erreur serveur HTTP ${response.status}`,
-        requiresConfig: Boolean(data.requiresConfig),
-        missingEnv: data.missingEnv || [],
-        plan: planId,
-      };
+      if (options?.onSuccess && typeof kkiapayWindow.addSuccessListener === 'function') {
+        kkiapayWindow.addSuccessListener(options.onSuccess);
+      }
+      return;
+    } catch (e) {
+      console.warn('[Kkiapay] Widget error, falling back to direct URL:', e);
     }
-
-    return data;
-  } catch (err: any) {
-    return {
-      error: err?.message || 'Impossible de contacter le serveur de paiement.',
-      plan: planId,
-    };
   }
+
+  // Fallback vers l'URL Kkiapay
+  window.open(PAYMENT_CHANNELS.kkiapay.url, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * Lance le paiement Gumroad ($20 - Carte Visa).
+ */
+export function openGumroadPayment() {
+  window.open(PAYMENT_CHANNELS.gumroad.url, '_blank', 'noopener,noreferrer');
 }
 
 /**
@@ -67,11 +118,9 @@ export async function fetchServerSubscriptionStatus(): Promise<ServerSubscriptio
     const response = await fetch('/api/subscription/status', {
       headers: getAuthHeaders(),
     });
-
     if (!response.ok) {
       return null;
     }
-
     return await response.json();
   } catch (err) {
     console.warn('[PaymentService] Erreur récupération statut abonnement:', err);
@@ -80,34 +129,22 @@ export async function fetchServerSubscriptionStatus(): Promise<ServerSubscriptio
 }
 
 /**
- * Allows verification of an order ID with Lemon Squeezy directly (fallback).
+ * Allows verification of an order ID (fallback).
  */
 export async function verifyLemonSqueezyOrder(orderId: string): Promise<{
   success: boolean;
   plan?: UserPlan;
   error?: string;
 }> {
-  try {
-    const response = await fetch('/api/payments/lemonsqueezy/verify-order', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        orderId,
-        userId: getClientUserId(),
-      }),
-    });
-
-    return await response.json();
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err?.message || 'Erreur lors de la vérification de la commande.',
-    };
-  }
+  return {
+    success: false,
+    error: 'Lemon Squeezy est déconnecté. Veuillez entrer votre code d’activation Kkiapay ou Gumroad.',
+  };
 }
 
 /**
  * Validates an activation code on the server and unlocks subscription.
+ * Accepts Kkiapay transactions, Gumroad licenses, and secret codes.
  */
 export async function activateSubscriptionCode(
   code: string,
@@ -131,7 +168,6 @@ export async function activateSubscriptionCode(
         userId: getClientUserId(),
       }),
     });
-
     const data = await response.json();
     if (!response.ok) {
       return {
@@ -139,7 +175,6 @@ export async function activateSubscriptionCode(
         error: data.error || `Code d'activation invalide (HTTP ${response.status})`,
       };
     }
-
     return data;
   } catch (err: any) {
     return {
@@ -174,7 +209,6 @@ export async function startFreeTrial(
         userId: getClientUserId(),
       }),
     });
-
     const data = await response.json();
     if (!response.ok) {
       return {
@@ -182,7 +216,6 @@ export async function startFreeTrial(
         error: data.error || `Impossible d'activer l'essai gratuit (HTTP ${response.status})`,
       };
     }
-
     return data;
   } catch (err: any) {
     return {
@@ -191,5 +224,3 @@ export async function startFreeTrial(
     };
   }
 }
-
-

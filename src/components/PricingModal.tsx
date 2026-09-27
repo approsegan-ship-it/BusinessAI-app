@@ -12,10 +12,18 @@ import {
   ChevronRight,
   Lock,
   Phone,
+  CreditCard,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatPriceWithCurrency } from '../config/currency';
 import { OFFICIAL_PAYMENT_NUMBER } from './PaymentInstructionModal';
+import {
+  PAYMENT_CHANNELS,
+  openKkiapayPayment,
+  openGumroadPayment,
+} from '../services/paymentService';
 
 export const PricingModal: React.FC = () => {
   const {
@@ -73,7 +81,7 @@ export const PricingModal: React.FC = () => {
 
     if (planId === 'starter' || planId === 'pro' || planId === 'business') {
       setIsPricingModalOpen(false);
-      startLemonSqueezyCheckout(planId);
+      openPaymentModal(planId);
       return;
     }
 
@@ -313,14 +321,25 @@ export const PricingModal: React.FC = () => {
               </button>
             </form>
 
-            <a
-              href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer w-full md:w-auto text-center"
+            <button
+              type="button"
+              onClick={() => openKkiapayPayment({ email: user?.email, name: user?.name })}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer w-full md:w-auto text-center"
+              title="Pour Bénin, Togo, Sénégal"
             >
-              <span>Payer en ligne (Lemon Squeezy)</span>
-            </a>
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Moov / MTN (Kkiapay) - 10.000F</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openGumroadPayment}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer w-full md:w-auto text-center"
+              title="Pour France, USA"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Carte Visa (Gumroad) - $20</span>
+            </button>
 
             <a
               href={`https://wa.me/2290163638893?text=${encodeURIComponent(

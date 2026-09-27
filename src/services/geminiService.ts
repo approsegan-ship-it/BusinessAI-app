@@ -30,7 +30,8 @@ Consignes impératives :
 1. Rédige en français impeccable, professionnel, dynamique, percutant et directement prêt à l'emploi.
 2. Utilise fidèlement le contexte de l'entreprise (nom, devise ${company.currency || 'FCFA'}, coordonnées WhatsApp, directives et ton) pour enrichir et personnaliser tes réponses de manière naturelle.
 3. Mets toujours en valeur les bénéfices pour le client et termine par un appel à l'action clair et engageant.
-4. Structure les textes longs avec des puces claires et des émojis pertinents si adapté aux réseaux sociaux ou messages clients.`;
+4. Structure les textes longs avec des puces claires et des émojis pertinents si adapté aux réseaux sociaux ou messages clients.
+5. Tu es également un expert conseil sur l'écosystème des solutions d'IA en entreprise : Bureautique Augmentée (Microsoft 365 Copilot, Google Workspace Gemini), Recherche et Connaissances (Glean, Notion AI), Agents Autonomes sans code (Zapier Central, Custom GPTs), et Analyse Stratégique (Tableau Pulse). Tu sais orienter avec précision selon les objectifs et outils de l'entreprise.`;
 }
 
 export async function generateAIContent(
@@ -210,6 +211,23 @@ import {
   VideoScene,
 } from '../types';
 
+function extractJsonFromText(rawText: string | undefined | null): any {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('Texte vide ou non défini');
+  }
+  let cleaned = rawText.trim();
+  const jsonBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (jsonBlockMatch && jsonBlockMatch[1]) {
+    cleaned = jsonBlockMatch[1].trim();
+  } else {
+    const openBlock = cleaned.match(/```(?:json)?\s*([\s\S]*)/i);
+    if (openBlock && openBlock[1]) {
+      cleaned = openBlock[1].trim();
+    }
+  }
+  return JSON.parse(cleaned);
+}
+
 export async function generateVideoScriptWithAI(params: {
   productOrTopic: string;
   objective: VideoObjective;
@@ -299,16 +317,8 @@ Renvoie UNIQUEMENT un objet JSON valide (sans texte introductif ni explications 
   try {
     const rawResult = await generateAIContent(prompt, company, 0.7);
 
-    // Extract JSON from response
-    let cleanedJson = rawResult.text.trim();
-    if (cleanedJson.includes('```json')) {
-      cleanedJson = cleanedJson.split('```json')[1].split('```')[0].trim();
-    } else if (cleanedJson.includes('```')) {
-      cleanedJson = cleanedJson.split('```')[1].split('```')[0].trim();
-    }
-
-    // Try parsing
-    const parsed = JSON.parse(cleanedJson);
+    // Extract and parse JSON safely
+    const parsed = extractJsonFromText(rawResult.text);
 
     const completeScript: GeneratedVideoScript = {
       title: parsed.title || `Vidéo ${productOrTopic}`,
@@ -575,13 +585,7 @@ Renvoie UNIQUEMENT un JSON valide respectant ce format :
 
   try {
     const rawResult = await generateAIContent(prompt, company, 0.5);
-    let cleaned = rawResult.text.trim();
-    if (cleaned.includes('```json')) {
-      cleaned = cleaned.split('```json')[1].split('```')[0].trim();
-    } else if (cleaned.includes('```')) {
-      cleaned = cleaned.split('```')[1].split('```')[0].trim();
-    }
-    const parsed = JSON.parse(cleaned);
+    const parsed = extractJsonFromText(rawResult.text);
 
     const formattedItems = (parsed.items || []).map((it: any) => {
       const q = Number(it.quantity) || 1;
@@ -730,13 +734,7 @@ Renvoie UNIQUEMENT un objet JSON valide :
 
   try {
     const rawResult = await generateAIContent(prompt, company, 0.7);
-    let cleaned = rawResult.text.trim();
-    if (cleaned.includes('```json')) {
-      cleaned = cleaned.split('```json')[1].split('```')[0].trim();
-    } else if (cleaned.includes('```')) {
-      cleaned = cleaned.split('```')[1].split('```')[0].trim();
-    }
-    const parsed = JSON.parse(cleaned);
+    const parsed = extractJsonFromText(rawResult.text);
 
     return {
       objective: parsed.objective || SCENARIO_DESCRIPTIONS[scenario],
@@ -1092,6 +1090,7 @@ export async function startVeoVideoGeneration(
   operationName?: string;
   error?: string;
   requiresPaidKey?: boolean;
+  isQuotaExceeded?: boolean;
 }> {
   try {
     const res = await fetch('/api/gemini/generate-video', {
@@ -1109,11 +1108,16 @@ export async function startVeoVideoGeneration(
       };
     }
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      let errMsg = data.error || 'Erreur de génération vidéo';
+      if (typeof errMsg === 'object') {
+        errMsg = errMsg.message || JSON.stringify(errMsg);
+      }
       return {
-        error: data.error || 'Erreur de génération vidéo',
+        error: errMsg,
         requiresPaidKey: Boolean(data.requiresPaidKey),
+        isQuotaExceeded: Boolean(data.isQuotaExceeded || res.status === 429),
       };
     }
     return { operationName: data.operationName };

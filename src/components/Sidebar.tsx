@@ -22,6 +22,7 @@ import {
   Receipt,
   PhoneCall,
   CreditCard,
+  Compass,
 } from 'lucide-react';
 import { OFFICIAL_PAYMENT_NUMBER } from './PaymentInstructionModal';
 
@@ -161,6 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     openPaymentModal,
     company,
     openWhatsAppTutorialModal,
+    openEnterpriseGuide,
     displayCurrency,
     t,
   } = useApp();
@@ -174,6 +176,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
   const handleOpenWhatsAppGuide = () => {
     openWhatsAppTutorialModal();
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
+  const handleOpenEnterpriseGuide = () => {
+    openEnterpriseGuide();
     if (onCloseMobile) {
       onCloseMobile();
     }
@@ -247,6 +256,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
         {/* WhatsApp Integration Tutorial Link */}
         <div className="pt-2 space-y-2">
+          {/* Enterprise AI Guide & Diagnostic Button */}
+          <button
+            onClick={handleOpenEnterpriseGuide}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-100/90 hover:from-purple-100 hover:to-indigo-200 border border-purple-200 text-purple-950 transition-all group cursor-pointer text-left shadow-2xs active:scale-98"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Compass className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-xs text-purple-950 leading-tight">
+                  Diagnostic Solutions IA
+                </div>
+                <div className="text-[10px] text-purple-700 truncate">Guide 4 Piliers & Benchmark</div>
+              </div>
+            </div>
+            <span className="text-[9px] font-extrabold bg-purple-600 text-white px-1.5 py-0.5 rounded-md">
+              Guide
+            </span>
+          </button>
+
           <button
             onClick={handleOpenWhatsAppGuide}
             className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-emerald-950 transition-all group cursor-pointer text-left shadow-2xs"
@@ -267,28 +297,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             </span>
           </button>
 
-          {/* Lemon Squeezy Payment Link */}
-          <a
-            href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 transition-all group cursor-pointer text-left shadow-2xs"
+          {/* Kkiapay & Gumroad Payment Link */}
+          <button
+            onClick={() => {
+              if (onCloseMobile) onCloseMobile();
+              openPaymentModal();
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-indigo-50 hover:from-emerald-100 hover:to-indigo-100 border border-emerald-300 text-slate-900 transition-all group cursor-pointer text-left shadow-2xs"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold">
                 <CreditCard className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-bold text-xs text-emerald-950 leading-tight">
-                  Payer en ligne
+                <div className="font-bold text-xs text-slate-900 leading-tight">
+                  Payer / Débloquer
                 </div>
-                <div className="text-[10px] text-emerald-800 truncate">Lemon Squeezy sécurisé</div>
+                <div className="text-[10px] text-emerald-800 font-medium truncate">
+                  Kkiapay 10.000F • Gumroad $20
+                </div>
               </div>
             </div>
-            <span className="text-[9px] font-extrabold bg-emerald-300 text-emerald-950 px-1.5 py-0.5 rounded-md">
+            <span className="text-[9px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-md shadow-2xs">
               Payer
             </span>
-          </a>
+          </button>
         </div>
       </div>
 

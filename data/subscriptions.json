@@ -1,1 +1,37 @@
-{}
+{
+  "usr_9lxffi4c_mtt4caa1": {
+    "userId": "usr_9lxffi4c_mtt4caa1",
+    "userName": "Entrepreneur",
+    "userEmail": "demo@businessai.app",
+    "plan": "pro",
+    "status": "active",
+    "isTrial": true,
+    "variantId": "trial_7_days_pro",
+    "orderId": "TRIAL-7D-185112",
+    "activatedAt": "2026-09-26T15:39:45.112Z",
+    "expiresAt": "2026-10-03T15:39:45.112Z",
+    "lastVerifiedAt": "2026-09-26T15:39:45.112Z"
+  },
+  "user_test_123": {
+    "userId": "user_test_123",
+    "userName": "Client Kkiapay",
+    "plan": "pro",
+    "status": "active",
+    "variantId": "code_KKIAPAY10000",
+    "orderId": "PAY-KKIAPAY10000-584898",
+    "activatedAt": "2026-09-27T11:29:44.898Z",
+    "expiresAt": "2027-09-27T11:29:44.898Z",
+    "lastVerifiedAt": "2026-09-27T11:29:44.898Z"
+  },
+  "user_test_456": {
+    "userId": "user_test_456",
+    "userName": "Client BusinessAI",
+    "plan": "pro",
+    "status": "active",
+    "variantId": "code_GUMROAD20",
+    "orderId": "PAY-GUMROAD20-591411",
+    "activatedAt": "2026-09-27T11:29:51.411Z",
+    "expiresAt": "2027-09-27T11:29:51.411Z",
+    "lastVerifiedAt": "2026-09-27T11:29:51.411Z"
+  }
+}

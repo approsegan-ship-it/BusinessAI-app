@@ -193,13 +193,15 @@ export const VideoGenerator: React.FC = () => {
   // Helper text wrapper for canvas video rendering
   const wrapText = (
     ctx: CanvasRenderingContext2D,
-    text: string,
+    text: string | undefined | null,
     x: number,
     y: number,
     maxWidth: number,
     lineHeight: number
   ) => {
-    const words = text.split(' ');
+    if (!text || typeof text !== 'string') return;
+    const words = text.split(' ').filter(Boolean);
+    if (words.length === 0) return;
     let line = '';
     let currentY = y;
 
@@ -244,14 +246,14 @@ export const VideoGenerator: React.FC = () => {
 
       if (res.error) {
         setVeoError(res.error);
-        if (res.requiresPaidKey) {
+        if (res.isQuotaExceeded || res.requiresPaidKey) {
           addToast(
             'info',
-            'Veo requiert une clé facturée',
-            'Utilisez notre Studio Vidéo MP4 ci-dessous pour générer votre vidéo instantanément sans frais.'
+            'Option Gratuite Recommandée',
+            'Le modèle Veo a temporairement atteint son quota. Cliquez sur l’Option 1 (Studio Vidéo MP4) pour créer votre vidéo animée sans attente ni frais.'
           );
         } else {
-          addToast('error', 'Erreur Veo', res.error);
+          addToast('error', 'Information Veo', res.error);
         }
         setVeoLoading(false);
         return;
@@ -374,117 +376,131 @@ export const VideoGenerator: React.FC = () => {
       const totalFrames = totalScenes * framesPerScene;
 
       const renderFrame = () => {
-        const sceneIndex = Math.min(totalScenes - 1, Math.floor(currentFrame / framesPerScene));
-        const scene = scenes[sceneIndex];
-        const sceneLocalFrame = currentFrame % framesPerScene;
-        const progressInScene = sceneLocalFrame / framesPerScene;
+        try {
+          const sceneIndex = Math.min(totalScenes - 1, Math.floor(currentFrame / framesPerScene));
+          const scene = scenes[sceneIndex] || scenes[0];
+          if (!scene) {
+            recorder.stop();
+            return;
+          }
+          const sceneLocalFrame = currentFrame % framesPerScene;
+          const progressInScene = sceneLocalFrame / framesPerScene;
 
-        // Background Gradient
-        const grad = ctx.createLinearGradient(0, 0, width, height);
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(0.5, '#1e1b4b');
-        grad.addColorStop(1, '#312e81');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, width, height);
+          // Background Gradient
+          const grad = ctx.createLinearGradient(0, 0, width, height);
+          grad.addColorStop(0, '#0f172a');
+          grad.addColorStop(0.5, '#1e1b4b');
+          grad.addColorStop(1, '#312e81');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, width, height);
 
-        // Ambient radial glow
-        const radGrad = ctx.createRadialGradient(width / 2, height * 0.35, 10, width / 2, height * 0.35, width * 0.6);
-        radGrad.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
-        radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = radGrad;
-        ctx.fillRect(0, 0, width, height);
+          // Ambient radial glow
+          const radGrad = ctx.createRadialGradient(width / 2, height * 0.35, 10, width / 2, height * 0.35, width * 0.6);
+          radGrad.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+          radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = radGrad;
+          ctx.fillRect(0, 0, width, height);
 
-        // Story progress bar at top
-        const barY = height * 0.04;
-        const barSpacing = 8;
-        const totalBarWidth = width * 0.88;
-        const singleBarWidth = (totalBarWidth - (totalScenes - 1) * barSpacing) / totalScenes;
+          // Story progress bar at top
+          const barY = height * 0.04;
+          const barSpacing = 8;
+          const totalBarWidth = width * 0.88;
+          const singleBarWidth = (totalBarWidth - (totalScenes - 1) * barSpacing) / totalScenes;
 
-        for (let i = 0; i < totalScenes; i++) {
-          const bx = width * 0.06 + i * (singleBarWidth + barSpacing);
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-          ctx.beginPath();
-          ctx.roundRect(bx, barY, singleBarWidth, 6, 3);
-          ctx.fill();
-
-          if (i < sceneIndex) {
-            ctx.fillStyle = '#ffffff';
+          for (let i = 0; i < totalScenes; i++) {
+            const bx = width * 0.06 + i * (singleBarWidth + barSpacing);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
             ctx.beginPath();
             ctx.roundRect(bx, barY, singleBarWidth, 6, 3);
             ctx.fill();
-          } else if (i === sceneIndex) {
-            ctx.fillStyle = '#ec4899';
-            ctx.beginPath();
-            ctx.roundRect(bx, barY, singleBarWidth * progressInScene, 6, 3);
-            ctx.fill();
+
+            if (i < sceneIndex) {
+              ctx.fillStyle = '#ffffff';
+              ctx.beginPath();
+              ctx.roundRect(bx, barY, singleBarWidth, 6, 3);
+              ctx.fill();
+            } else if (i === sceneIndex) {
+              ctx.fillStyle = '#ec4899';
+              ctx.beginPath();
+              ctx.roundRect(bx, barY, singleBarWidth * progressInScene, 6, 3);
+              ctx.fill();
+            }
           }
-        }
 
-        // Header: Brand & Scene indicator
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 22px system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`★ ${(company.name || 'BusinessAI').toUpperCase()}`, width * 0.06, height * 0.10);
+          // Header: Brand & Scene indicator
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 22px system-ui, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(`★ ${(company.name || 'BusinessAI').toUpperCase()}`, width * 0.06, height * 0.10);
 
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = 'bold 18px system-ui, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(`Scène ${scene.sceneNumber}/${totalScenes}`, width * 0.94, height * 0.10);
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = 'bold 18px system-ui, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillText(`Scène ${scene.sceneNumber || (sceneIndex + 1)}/${totalScenes}`, width * 0.94, height * 0.10);
 
-        // Central Dynamic Text Card
-        const cardY = height * 0.28;
-        const cardHeight = height * 0.28;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-        ctx.beginPath();
-        ctx.roundRect(width * 0.06, cardY, width * 0.88, cardHeight, 24);
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-        ctx.stroke();
+          // Central Dynamic Text Card
+          const cardY = height * 0.28;
+          const cardHeight = height * 0.28;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          ctx.beginPath();
+          ctx.roundRect(width * 0.06, cardY, width * 0.88, cardHeight, 24);
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+          ctx.stroke();
 
-        ctx.fillStyle = '#fde047';
-        ctx.font = `bold ${isVertical ? '32px' : '26px'} system-ui, sans-serif`;
-        ctx.textAlign = 'center';
-        const screenText = scene.screenText || generatedScript.hook;
-        wrapText(ctx, screenText, width / 2, cardY + cardHeight * 0.40, width * 0.78, 38);
+          ctx.fillStyle = '#fde047';
+          ctx.font = `bold ${isVertical ? '32px' : '26px'} system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          const screenText = scene.screenText || generatedScript.hook || '';
+          wrapText(ctx, screenText, width / 2, cardY + cardHeight * 0.40, width * 0.78, 38);
 
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 18px system-ui, sans-serif';
-        ctx.fillText(`🎥 ${scene.cameraDirection || 'Plan Commercial'}`, width / 2, cardY + cardHeight * 0.82);
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'bold 18px system-ui, sans-serif';
+          ctx.fillText(`🎥 ${scene.cameraDirection || 'Plan Commercial'}`, width / 2, cardY + cardHeight * 0.82);
 
-        // Subtitle Card at bottom (Voiceover)
-        const subY = height * 0.64;
-        const subHeight = height * 0.24;
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-        ctx.beginPath();
-        ctx.roundRect(width * 0.06, subY, width * 0.88, subHeight, 24);
-        ctx.fill();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
-        ctx.stroke();
+          // Subtitle Card at bottom (Voiceover)
+          const subY = height * 0.64;
+          const subHeight = height * 0.24;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.beginPath();
+          ctx.roundRect(width * 0.06, subY, width * 0.88, subHeight, 24);
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+          ctx.stroke();
 
-        ctx.fillStyle = '#ec4899';
-        ctx.font = 'bold 16px system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('🎙️ VOIX-OFF :', width * 0.10, subY + 36);
+          ctx.fillStyle = '#ec4899';
+          ctx.font = 'bold 16px system-ui, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('🎙️ VOIX-OFF :', width * 0.10, subY + 36);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `500 ${isVertical ? '20px' : '18px'} system-ui, sans-serif`;
-        wrapText(ctx, scene.voiceover, width * 0.10, subY + 74, width * 0.80, 28);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `500 ${isVertical ? '20px' : '18px'} system-ui, sans-serif`;
+          const voiceoverText = scene.voiceoverText || (scene as any).voiceover || '';
+          wrapText(ctx, voiceoverText, width * 0.10, subY + 74, width * 0.80, 28);
 
-        // Watermark Footer
-        ctx.fillStyle = '#34d399';
-        ctx.font = 'bold 18px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`📲 WhatsApp : ${company.whatsapp || company.phone || '01 63 63 88 93'}`, width / 2, height * 0.94);
+          // Watermark Footer
+          ctx.fillStyle = '#34d399';
+          ctx.font = 'bold 18px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`📲 WhatsApp : ${company.whatsapp || company.phone || '01 63 63 88 93'}`, width / 2, height * 0.94);
 
-        currentFrame++;
-        setStudioExportProgress(Math.round((currentFrame / totalFrames) * 100));
+          currentFrame++;
+          setStudioExportProgress(Math.round((currentFrame / totalFrames) * 100));
 
-        if (currentFrame < totalFrames) {
-          requestAnimationFrame(renderFrame);
-        } else {
-          recorder.stop();
+          if (currentFrame < totalFrames) {
+            requestAnimationFrame(renderFrame);
+          } else {
+            recorder.stop();
+          }
+        } catch (frameErr: any) {
+          console.warn('Erreur rendu de frame vidéo animée:', frameErr);
+          setIsExportingStudioVideo(false);
+          try {
+            recorder.stop();
+          } catch {}
+          addToast('error', 'Erreur export', frameErr?.message || 'Erreur lors du rendu vidéo');
         }
       };
 
@@ -1729,14 +1745,30 @@ Hashtags : ${generatedScript.captionAndHashtags.hashtags.join(' ')}
 
                     {/* Veo Error or Quota message */}
                     {veoError && (
-                      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-1.5">
-                        <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                          <span>Information Veo :</span>
+                      <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/90 border border-amber-200/90 space-y-3">
+                        <div className="text-xs font-bold text-amber-900 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <span>Information Veo :</span>
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-950 font-bold">
+                            Alternative Gratuite
+                          </span>
                         </div>
-                        <p className="text-xs text-amber-800">{veoError}</p>
-                        <p className="text-[11px] text-amber-700">
-                          👉 Vous pouvez utiliser l'option <strong>Studio Export Vidéo Animée MP4</strong> ci-dessus qui fonctionne immédiatement et sans quotas !
-                        </p>
+                        <p className="text-xs text-amber-800 leading-relaxed">{veoError}</p>
+                        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-t border-amber-200/70">
+                          <p className="text-[11px] text-amber-900 font-medium">
+                            ✨ Générez votre vidéo animée MP4 immédiatement via le Studio sans attente de quota :
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleExportStudioAnimatedVideo}
+                            disabled={isExportingStudioVideo}
+                            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer shrink-0 transition-all disabled:opacity-50"
+                          >
+                            <Film className="w-3.5 h-3.5" />
+                            <span>Générer via le Studio MP4</span>
+                          </button>
+                        </div>
                       </div>
                     )}
 

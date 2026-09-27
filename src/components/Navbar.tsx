@@ -102,16 +102,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            <a
-              href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Payer en ligne via Lemon Squeezy"
+            <button
+              onClick={openPaymentModal}
+              title="Payer via Kkiapay (Moov/MTN - 10.000F) ou Gumroad (Visa - $20)"
               className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
             >
               <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
               <span>Payer en ligne</span>
-            </a>
+            </button>
 
             {/* Language Switcher Dropdown */}
             <div className="relative">

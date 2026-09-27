@@ -28,6 +28,11 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { formatPriceWithCurrency, SUPPORTED_CURRENCIES, CurrencyCode } from '../config/currency';
+import {
+  PAYMENT_CHANNELS,
+  openKkiapayPayment,
+  openGumroadPayment,
+} from '../services/paymentService';
 import { OFFICIAL_PAYMENT_NUMBER, OFFICIAL_PAYMENT_DISPLAY } from './PaymentInstructionModal';
 
 export const PricingView: React.FC = () => {
@@ -76,10 +81,6 @@ export const PricingView: React.FC = () => {
   const handleSelectPlan = (planId: PlanId) => {
     if (planId === 'free') {
       addToast('info', 'Forfait gratuit', 'Le forfait gratuit sans IA est déjà actif.');
-      return;
-    }
-    if (planId === 'starter' || planId === 'pro' || planId === 'business') {
-      startLemonSqueezyCheckout(planId);
       return;
     }
     openPaymentModal(planId);
@@ -208,7 +209,7 @@ export const PricingView: React.FC = () => {
         ) : null}
       </div>
 
-      {/* Secret Code Unlock & Lemon Squeezy Checkout Form */}
+      {/* Secret Code Unlock & Kkiapay / Gumroad Payment Form */}
       <div className="p-6 rounded-3xl bg-indigo-50/80 border-2 border-indigo-200/80 flex flex-col md:flex-row items-center justify-between gap-5 shadow-xs">
         <div className="space-y-1 text-center md:text-left max-w-lg">
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider">
@@ -216,20 +217,20 @@ export const PricingView: React.FC = () => {
             <span>Déblocage Immédiat par Code</span>
           </div>
           <h3 className="text-base sm:text-lg font-black text-slate-900">
-            Vous avez payé sur Lemon Squeezy ou WhatsApp ?
+            Vous avez payé par Kkiapay, Gumroad ou WhatsApp ?
           </h3>
           <p className="text-xs text-slate-600">
-            Collez le code reçu par email ou par message pour débloquer votre accès sans attendre.
+            Collez le code ou numéro de transaction reçu pour débloquer votre accès sans attendre.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
           <form onSubmit={handleActivateCode} className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="text"
               value={activationCodeInput}
               onChange={(e) => setActivationCodeInput(e.target.value.toUpperCase())}
-              placeholder="Ex : BAI-PRO-229"
+              placeholder="Ex : KKIA-XXXX ou clé Gumroad"
               className="px-4 py-2.5 rounded-xl border border-indigo-300 bg-white font-mono font-bold text-xs uppercase w-full sm:w-44 focus:outline-none focus:ring-2 focus:ring-indigo-600"
             />
             <button
@@ -242,15 +243,25 @@ export const PricingView: React.FC = () => {
             </button>
           </form>
 
-          <a
-            href="https://businessai-app.lemonsqueezy.com/checkout/buy/301e87b4-22a6-4c76-b65a-0d8f2c73068a"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer w-full sm:w-auto justify-center text-center"
+          <button
+            type="button"
+            onClick={() => openKkiapayPayment({ email: user?.email, name: user?.name })}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer w-full sm:w-auto justify-center text-center"
+            title="Bénin, Togo, Sénégal"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Moov/MTN (10.000F)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openGumroadPayment}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer w-full sm:w-auto justify-center text-center"
+            title="France, USA"
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>Payer sur Lemon Squeezy</span>
-          </a>
+            <span>Carte Visa ($20)</span>
+          </button>
 
           <a
             href={`https://wa.me/2290163638893?text=${encodeURIComponent(

@@ -35,19 +35,28 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isHighDemandOrUnavailable(error: any): boolean {
   if (!error) return false;
-  const status = error.status || error.code || error?.error?.code;
-  const msg = (error.message || error?.error?.message || "").toLowerCase();
+  const status = error.status || error.code || error?.error?.code || error?.error?.status;
+  const msg = (
+    error.message ||
+    error?.error?.message ||
+    (typeof error === "string" ? error : JSON.stringify(error))
+  ).toLowerCase();
   return (
     status === 503 ||
     status === 429 ||
     status === "UNAVAILABLE" ||
+    status === "RESOURCE_EXHAUSTED" ||
     msg.includes("503") ||
+    msg.includes("429") ||
     msg.includes("high demand") ||
     msg.includes("spikes in demand") ||
     msg.includes("unavailable") ||
     msg.includes("resource_exhausted") ||
+    msg.includes("quota") ||
+    msg.includes("rate-limit") ||
+    msg.includes("rate limit") ||
     msg.includes("overloaded") ||
-    msg.includes("rate limit")
+    msg.includes("billing")
   );
 }
 
@@ -431,111 +440,24 @@ async function startServer() {
     });
   });
 
-  // Création de session de paiement sécurisée Lemon Squeezy
+  // Lemon Squeezy est déconnecté au profit de Kkiapay (Moov/MTN - 10.000F) et Gumroad (Visa - $20)
   app.post("/api/payments/lemonsqueezy/create-checkout", async (req: Request, res: Response) => {
-    try {
-      const { planId, userEmail, userName } = req.body;
-      const userId = (req.headers["x-user-id"] as string) || req.body?.userId;
-
-      if (!userId) {
-        return res.status(400).json({ error: "Identifiant utilisateur (x-user-id) requis." });
-      }
-
-      if (!["starter", "pro", "business"].includes(planId)) {
-        return res.status(400).json({
-          error: "Forfait invalide. Choisissez entre 'starter', 'pro' ou 'business'.",
-        });
-      }
-
-      const planKey = planId as PaidPlanType;
-      const planConfig = SERVER_PLAN_CONFIG[planKey];
-      const variantId = getVariantIdForPlan(planKey);
-
-      const apiKey = process.env.LEMON_SQUEEZY_API_KEY?.trim();
-      const storeId = process.env.LEMON_SQUEEZY_STORE_ID?.trim();
-
-      const missingEnv: string[] = [];
-      if (!apiKey) missingEnv.push("LEMON_SQUEEZY_API_KEY");
-      if (!storeId) missingEnv.push("LEMON_SQUEEZY_STORE_ID");
-      if (!variantId) missingEnv.push(planConfig.envVar);
-
-      if (missingEnv.length > 0) {
-        return res.status(400).json({
-          error: `Le Variant ID Lemon Squeezy pour le forfait ${planConfig.name} n'est pas encore configuré sur le serveur.`,
-          requiresConfig: true,
-          missingEnv,
-          plan: planKey,
-          instructions: `Veuillez renseigner les variables d'environnement dans les paramètres : ${missingEnv.join(", ")}`,
-        });
-      }
-
-      const appOrigin = process.env.APP_URL || req.headers.origin || `http://localhost:${PORT}`;
-      const redirectUrl = `${appOrigin}/?payment_success=true&plan=${planKey}&uid=${userId}`;
-
-      const lsResponse = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
-        method: "POST",
-        headers: {
-          Accept: "application/vnd.api+json",
-          "Content-Type": "application/vnd.api+json",
-          Authorization: `Bearer ${apiKey}`,
+    return res.status(400).json({
+      error: "Lemon Squeezy est déconnecté. Veuillez utiliser le Bouton 1 (Kkiapay - Moov/MTN - 10.000F) ou le Bouton 2 (Gumroad - Carte Visa - $20).",
+      disconnected: true,
+      channels: {
+        kkiapay: {
+          title: "Payer par Moov Money / MTN (Kkiapay) - 10.000F",
+          target: "Pour tes clients du Bénin, Togo, Sénégal",
+          url: process.env.KKIAPAY_URL || "https://pay.kkiapay.me/",
         },
-        body: JSON.stringify({
-          data: {
-            type: "checkouts",
-            attributes: {
-              checkout_data: {
-                email: userEmail || undefined,
-                name: userName || undefined,
-                custom: {
-                  user_id: userId,
-                  plan_id: planKey,
-                },
-              },
-              product_options: {
-                redirect_url: redirectUrl,
-              },
-            },
-            relationships: {
-              store: {
-                data: {
-                  type: "stores",
-                  id: String(storeId),
-                },
-              },
-              variant: {
-                data: {
-                  type: "variants",
-                  id: String(variantId),
-                },
-              },
-            },
-          },
-        }),
-      });
-
-      const lsData = await lsResponse.json();
-
-      if (!lsResponse.ok) {
-        console.error("[Lemon Squeezy API] Checkout create error:", lsData);
-        const detail = lsData?.errors?.[0]?.detail || "Erreur de création du checkout Lemon Squeezy";
-        return res.status(lsResponse.status).json({
-          error: detail,
-          details: lsData,
-        });
-      }
-
-      const checkoutUrl = lsData?.data?.attributes?.url;
-      return res.json({
-        checkoutUrl,
-        plan: planKey,
-        variantId,
-        price: planConfig.price,
-        currency: planConfig.currency,
-      });
-    } catch (err: any) {
-      console.error("[Checkout] Erreur interne:", err);
-      return res.status(500).json({ error: err?.message || "Erreur serveur checkout" });
-    }
+        gumroad: {
+          title: "Payer par carte Visa (Gumroad) - $20",
+          target: "Pour les clients en France, USA",
+          url: process.env.GUMROAD_URL || "https://gumroad.com/",
+        },
+      },
+    });
   });
 
   // Webhook Lemon Squeezy officiel sécurisé avec validation de signature HMAC-SHA256
@@ -715,15 +637,30 @@ async function startServer() {
     return res.json({ success: true, message: `Forfait ${planKey.toUpperCase()} activé pour ${userId}` });
   });
 
-  // Dictionnaire des codes secrets d'activation BusinessAI (Bénin +229) & Lemon Squeezy
+  // Dictionnaire des codes secrets d'activation BusinessAI (Bénin +229), Kkiapay (10.000F) & Gumroad ($20)
   const ACTIVATION_CODES: Record<string, { plan: PaidPlanType; label: string; monthlyGenerations: number; days: number }> = {
-    // 0. Codes Lemon Squeezy Officiels
-    "301E87B4-22A6-4C76-B65A-0D8F2C73068A": { plan: "pro", label: "PRO (Lemon Squeezy Checkout)", monthlyGenerations: 1000, days: 365 },
-    "301E87B422A64C76B65A0D8F2C73068A": { plan: "pro", label: "PRO (Lemon Squeezy Checkout)", monthlyGenerations: 1000, days: 365 },
-    "LEMONSQUEEZY": { plan: "pro", label: "PRO (Lemon Squeezy)", monthlyGenerations: 1000, days: 365 },
-    "LEMON-SQUEEZY": { plan: "pro", label: "PRO (Lemon Squeezy)", monthlyGenerations: 1000, days: 365 },
-    "LEMON229": { plan: "pro", label: "PRO (Lemon Squeezy)", monthlyGenerations: 1000, days: 365 },
-    "ACCES-ILLIMITE": { plan: "business", label: "ACCÈS ILLIMITÉ (Lemon Squeezy)", monthlyGenerations: 5000, days: 365 },
+    // 0. Codes Kkiapay (Moov Money / MTN - 10.000F) pour Bénin, Togo, Sénégal
+    "KKIAPAY10000": { plan: "pro", label: "PRO KKIAPAY (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "KKIAPAY": { plan: "pro", label: "PRO KKIAPAY (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "KKIA10000": { plan: "pro", label: "PRO KKIAPAY (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "KKIA-10000": { plan: "pro", label: "PRO KKIAPAY (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "MOOV10000": { plan: "pro", label: "PRO MOOV MONEY (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "MTN10000": { plan: "pro", label: "PRO MTN MONEY (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "BENIN10000": { plan: "pro", label: "PRO BÉNIN (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "TOGO10000": { plan: "pro", label: "PRO TOGO (10.000F)", monthlyGenerations: 1000, days: 365 },
+    "SENEGAL10000": { plan: "pro", label: "PRO SÉNÉGAL (10.000F)", monthlyGenerations: 1000, days: 365 },
+
+    // 0b. Codes Gumroad (Carte Visa - $20) pour France, USA
+    "GUMROAD20": { plan: "pro", label: "PRO GUMROAD ($20)", monthlyGenerations: 1000, days: 365 },
+    "GUMROAD": { plan: "pro", label: "PRO GUMROAD ($20)", monthlyGenerations: 1000, days: 365 },
+    "GUM-20": { plan: "pro", label: "PRO GUMROAD ($20)", monthlyGenerations: 1000, days: 365 },
+    "VISA20": { plan: "pro", label: "PRO VISA ($20)", monthlyGenerations: 1000, days: 365 },
+    "FRANCE20": { plan: "pro", label: "PRO FRANCE ($20)", monthlyGenerations: 1000, days: 365 },
+    "USA20": { plan: "pro", label: "PRO USA ($20)", monthlyGenerations: 1000, days: 365 },
+
+    // Codes Legacy
+    "301E87B4-22A6-4C76-B65A-0D8F2C73068A": { plan: "pro", label: "PRO (Licence)", monthlyGenerations: 1000, days: 365 },
+    "301E87B422A64C76B65A0D8F2C73068A": { plan: "pro", label: "PRO (Licence)", monthlyGenerations: 1000, days: 365 },
     "BUSINESSAI-PRO": { plan: "pro", label: "PRO BusinessAI", monthlyGenerations: 1000, days: 365 },
 
     // 1. Codes STARTER (9 900 FCFA)
@@ -822,23 +759,27 @@ async function startServer() {
       }
 
       if (!code || typeof code !== "string" || !code.trim()) {
-        return res.status(400).json({ error: "Veuillez saisir votre code d'activation reçu par email de Lemon Squeezy ou WhatsApp." });
+        return res.status(400).json({ error: "Veuillez saisir votre code d'activation reçu après paiement Kkiapay (10.000F) ou Gumroad ($20)." });
       }
 
       const rawCode = code.trim();
       const cleanCode = rawCode.toUpperCase();
       let codeData = ACTIVATION_CODES[cleanCode];
 
-      // Supporte les clés de licence Lemon Squeezy (UUID / format licence standard e.g. 8-4-4-4-12)
-      // ou numéro de commande (ex: 123456 ou LS-12345)
+      // Supporte les références de transaction Kkiapay (ex: KKIA-12345, KP-12345, TRX-12345)
+      const isKkiapayRef = /^(KKIA|KP|TRX|MOOV|MTN|CELT|WAVE)[-_A-Z0-9]{3,30}$/i.test(rawCode);
+
+      // Supporte les clés de licence Gumroad (format licence UUID 8-4-4-4-12, ou GUM-XXXXX, ou hash 16-32 chars)
       const uuidRegex = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
       const isUuidLicense = uuidRegex.test(rawCode);
-      const isLemonOrderRef = /^(#?[0-9]{4,12}|LS-[A-Z0-9_-]{4,30}|ORD-[A-Z0-9_-]{4,30})$/i.test(rawCode);
+      const isGumroadRef = /^(GUM|GR|VISA|PAY)[-_A-Z0-9]{4,30}$/i.test(rawCode);
+      const isAlphaNumLicense = /^[0-9A-Z]{4,8}-[0-9A-Z]{4,8}-[0-9A-Z]{4,8}-[0-9A-Z]{4,8}$/i.test(rawCode);
 
-      if (!codeData && (isUuidLicense || isLemonOrderRef || rawCode.toLowerCase().includes("301e87b4"))) {
+      if (!codeData && (isKkiapayRef || isUuidLicense || isGumroadRef || isAlphaNumLicense || rawCode.toLowerCase().includes("301e87b4"))) {
+        const isFromKkiapay = isKkiapayRef || rawCode.toLowerCase().includes("kkia");
         codeData = {
           plan: "pro",
-          label: "ACCÈS ILLIMITÉ (Lemon Squeezy)",
+          label: isFromKkiapay ? "PRO (Kkiapay Moov/MTN - 10.000F)" : "PRO (Gumroad Carte Visa - $20)",
           monthlyGenerations: 2000,
           days: 365,
         };
@@ -846,7 +787,7 @@ async function startServer() {
 
       if (!codeData) {
         return res.status(400).json({
-          error: "Code d'activation ou numéro de commande Lemon Squeezy non reconnu. Vérifiez votre email Lemon Squeezy ou contactez le support WhatsApp au +229 01 63 63 88 93.",
+          error: "Code d'activation ou numéro de transaction non reconnu. Vérifiez votre email / SMS reçu de Kkiapay ou Gumroad, ou contactez le support WhatsApp au +229 01 63 63 88 93.",
           whatsappNumber: "+229 01 63 63 88 93",
           whatsappUrl: "https://wa.me/2290163638893",
         });
@@ -857,12 +798,12 @@ async function startServer() {
 
       saveSubscriptionForUser(userId, {
         userId,
-        userName: userName || "Client Lemon Squeezy",
+        userName: userName || (cleanCode.includes("KKIA") ? "Client Kkiapay" : "Client BusinessAI"),
         userEmail: userEmail || undefined,
         plan: codeData.plan,
         status: "active",
         variantId: `code_${cleanCode}`,
-        orderId: `LS-${cleanCode.slice(0, 16)}-${Date.now().toString().slice(-6)}`,
+        orderId: `PAY-${cleanCode.slice(0, 16)}-${Date.now().toString().slice(-6)}`,
         activatedAt: new Date().toISOString(),
         expiresAt: expiresDate.toISOString(),
         lastVerifiedAt: new Date().toISOString(),
@@ -1180,7 +1121,7 @@ async function startServer() {
         durationSeconds,
       });
     } catch (err: any) {
-      console.error("[Veo Direct Route] Erreur:", err?.message || err);
+      console.warn("[Veo Direct Route] Info/Erreur:", err?.message || err);
       return res.status(500).json({ error: err?.message || "Erreur serveur Veo" });
     }
   });
@@ -1203,28 +1144,61 @@ async function startServer() {
 
       const validRatio = aspectRatio === "16:9" ? "16:9" : "9:16";
 
-      const operation = await ai.models.generateVideos({
-        model: model === "veo-3.1-lite-generate-preview" ? "veo-3.1-lite-generate-preview" : "veo-3.1-generate-preview",
-        prompt: prompt.trim(),
-        config: {
-          numberOfVideos: 1,
-          resolution: resolution === "1080p" ? "1080p" : "720p",
-          aspectRatio: validRatio,
-        },
-      });
+      // Try requested model first, fallback to lite model if high demand or quota
+      const primaryModel = model === "veo-3.1-lite-generate-preview" ? "veo-3.1-lite-generate-preview" : "veo-3.1-generate-preview";
+      const candidateModels = primaryModel === "veo-3.1-generate-preview"
+        ? ["veo-3.1-generate-preview", "veo-3.1-lite-generate-preview"]
+        : ["veo-3.1-lite-generate-preview"];
 
-      return res.json({
-        operationName: operation.name,
-        prompt,
-        aspectRatio: validRatio,
+      let operation: any = null;
+      let lastErr: any = null;
+
+      for (const m of candidateModels) {
+        try {
+          operation = await ai.models.generateVideos({
+            model: m,
+            prompt: prompt.trim(),
+            config: {
+              numberOfVideos: 1,
+              resolution: resolution === "1080p" ? "1080p" : "720p",
+              aspectRatio: validRatio,
+            },
+          });
+          if (operation?.name) break;
+        } catch (mErr: any) {
+          lastErr = mErr;
+          console.warn(`[Veo Video] Modèle ${m} non disponible ou quota atteint:`, mErr?.message || mErr);
+          if (!isHighDemandOrUnavailable(mErr)) {
+            break;
+          }
+        }
+      }
+
+      if (operation?.name) {
+        return res.json({
+          operationName: operation.name,
+          prompt,
+          aspectRatio: validRatio,
+        });
+      }
+
+      const isQuota = isHighDemandOrUnavailable(lastErr) || lastErr?.status === 429;
+      return res.status(isQuota ? 429 : 500).json({
+        error: isQuota
+          ? "Le quota du modèle Google Veo est temporairement atteint (Code 429). Utilisez notre Studio Vidéo MP4 ci-dessus pour générer votre vidéo instantanément sans frais !"
+          : (lastErr?.message || "Erreur de génération vidéo Veo."),
+        isQuotaExceeded: isQuota,
+        requiresPaidKey: true,
+        details: lastErr?.message,
       });
     } catch (err: any) {
-      console.error("[Veo Video] Erreur de démarrage vidéo:", err?.message || err);
+      console.warn("[Veo Video] Info quota ou exception démarrage vidéo:", err?.message || err);
       const isQuota = isHighDemandOrUnavailable(err) || err?.status === 429;
       return res.status(isQuota ? 429 : 500).json({
         error: isQuota
-          ? "Le modèle Veo nécessite une clé API facturée (Paid API Key)."
+          ? "Le quota du modèle Google Veo est temporairement atteint (Code 429). Utilisez notre Studio Vidéo MP4 ci-dessus pour générer votre vidéo instantanément sans frais !"
           : (err?.message || "Erreur de génération vidéo Veo."),
+        isQuotaExceeded: isQuota,
         requiresPaidKey: true,
         details: err?.message,
       });
@@ -1259,7 +1233,7 @@ async function startServer() {
         videoUri: videoUri || null,
       });
     } catch (err: any) {
-      console.error("[Veo Status] Erreur polling:", err?.message || err);
+      console.warn("[Veo Status] Info polling:", err?.message || err);
       return res.status(500).json({ error: err?.message || "Erreur lors de la vérification de statut" });
     }
   });
@@ -1302,7 +1276,7 @@ async function startServer() {
       const arrayBuf = await videoRes.arrayBuffer();
       res.end(Buffer.from(arrayBuf));
     } catch (err: any) {
-      console.error("[Veo Download] Erreur téléchargement:", err?.message || err);
+      console.warn("[Veo Download] Info téléchargement:", err?.message || err);
       return res.status(500).json({ error: err?.message || "Erreur de téléchargement" });
     }
   });

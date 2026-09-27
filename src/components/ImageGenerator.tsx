@@ -581,7 +581,7 @@ Consignes :
                     }`}
                   >
                     <div className="text-xs font-bold">{r.iconLabel}</div>
-                    <div className="text-[10px] text-gray-500 truncate mt-0.5">{r.label.split(' ')[0]}</div>
+                    <div className="text-[10px] text-gray-500 truncate mt-0.5">{r.label ? r.label.split(' ')[0] : ''}</div>
                   </button>
                 );
               })}
